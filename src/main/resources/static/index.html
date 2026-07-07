@@ -104,6 +104,12 @@
         grade: (id, data) => api.request("/api/submissions/" + id + "/grade", { method: "POST", body: JSON.stringify(data) }),
         downloadUrl: (id) => "/api/submissions/" + id + "/download",
       },
+      notifications: {
+        list: () => api.request("/api/notifications"),
+        unreadCount: () => api.request("/api/notifications/unread-count"),
+        markAllRead: () => api.request("/api/notifications/read-all", { method: "POST" }),
+        clearAll: () => api.request("/api/notifications", { method: "DELETE" }),
+      },
     };
 
     // ============================================================
@@ -280,6 +286,7 @@
             <img src="/img/logo.jpg" alt={APP_NAME} className="topbar-logo" />
             <div className="topbar-right">
               <span className="who">{user.name} · {user.role}{user.grade ? " · Grade " + user.grade : ""}</span>
+              {user.role === "TEACHER" && <NotificationBell />}
               <button className="icon-btn" title="Switch light / dark theme"
                 onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}>
                 {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
@@ -290,6 +297,84 @@
           <div className="container">
             {user.role === "TEACHER" ? <TeacherHome user={user} /> : <StudentHome user={user} />}
           </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  Teacher notification centre (bell + dropdown)
+    // ============================================================
+    function timeAgo(iso) {
+      const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 60) return "just now";
+      const m = Math.floor(s / 60); if (m < 60) return m + "m ago";
+      const h = Math.floor(m / 60); if (h < 24) return h + "h ago";
+      const d = Math.floor(h / 24); if (d < 7) return d + "d ago";
+      return new Date(iso).toLocaleDateString();
+    }
+
+    function NotificationBell() {
+      const [open, setOpen] = useState(false);
+      const [items, setItems] = useState([]);
+      const [count, setCount] = useState(0);
+      const wrapRef = useRef();
+
+      async function refreshCount() {
+        try { const r = await api.notifications.unreadCount(); setCount(r.count || 0); } catch (e) {}
+      }
+      // Poll the unread count on mount and every 30s.
+      useEffect(() => {
+        refreshCount();
+        const t = setInterval(refreshCount, 30000);
+        return () => clearInterval(t);
+      }, []);
+      // Close when clicking outside the bell/dropdown.
+      useEffect(() => {
+        function onDoc(e) { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); }
+        document.addEventListener("mousedown", onDoc);
+        return () => document.removeEventListener("mousedown", onDoc);
+      }, []);
+
+      async function toggle() {
+        if (open) { setOpen(false); return; }
+        setOpen(true);
+        try {
+          setItems(await api.notifications.list());
+          await api.notifications.markAllRead();   // opening the centre clears the badge
+          setCount(0);
+        } catch (e) { alert(e.message); }
+      }
+      async function clearAll() {
+        try { await api.notifications.clearAll(); setItems([]); setCount(0); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div className="notif" ref={wrapRef}>
+          <button className="icon-btn notif-bell" title="Notifications" onClick={toggle}>
+            🔔{count > 0 && <span className="notif-badge">{count > 99 ? "99+" : count}</span>}
+          </button>
+          {open && (
+            <div className="notif-panel">
+              <div className="notif-head">
+                <b>Notifications</b>
+                {items.length > 0 && <button className="link-btn" onClick={clearAll}>Clear all</button>}
+              </div>
+              {items.length === 0
+                ? <p className="muted" style={{ padding: "14px 16px", margin: 0 }}>No notifications yet.</p>
+                : <ul className="notif-list">
+                    {items.map(n => (
+                      <li key={n.id} className={n.read ? "" : "unread"}>
+                        <div className="notif-msg">{n.message}</div>
+                        <div className="notif-meta">
+                          <span className="muted">{timeAgo(n.createdAt)}</span>
+                          {n.submissionId &&
+                            <button className="link-btn" onClick={() => api.downloadFile(api.submissions.downloadUrl(n.submissionId), n.fileName || "submission")}>Download</button>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>}
+            </div>
+          )}
         </div>
       );
     }

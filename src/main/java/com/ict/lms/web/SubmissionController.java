@@ -19,12 +19,17 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.ict.lms.model.AppUser;
 import com.ict.lms.model.Assignment;
+import com.ict.lms.model.Notification;
 import com.ict.lms.model.Role;
 import com.ict.lms.model.Submission;
 import com.ict.lms.repo.AppUserRepository;
 import com.ict.lms.repo.AssignmentRepository;
+import com.ict.lms.repo.NotificationRepository;
 import com.ict.lms.repo.SubmissionRepository;
 import com.ict.lms.security.AuthUser;
 import com.ict.lms.service.FileStorageService;
@@ -36,17 +41,22 @@ import com.ict.lms.web.dto.SubmissionDto;
 @RequestMapping("/api/submissions")
 public class SubmissionController {
 
+    private static final Logger log = LoggerFactory.getLogger(SubmissionController.class);
+
     private final SubmissionRepository submissions;
     private final AssignmentRepository assignments;
     private final AppUserRepository users;
     private final FileStorageService storage;
+    private final NotificationRepository notifications;
 
     public SubmissionController(SubmissionRepository submissions, AssignmentRepository assignments,
-                               AppUserRepository users, FileStorageService storage) {
+                               AppUserRepository users, FileStorageService storage,
+                               NotificationRepository notifications) {
         this.submissions = submissions;
         this.assignments = assignments;
         this.users = users;
         this.storage = storage;
+        this.notifications = notifications;
     }
 
     /** Student uploads (or replaces) their answer for an assignment. */
@@ -66,6 +76,7 @@ public class SubmissionController {
 
         Submission s = submissions.findByAssignmentIdAndStudentId(assignmentId, user.id())
                 .orElseGet(Submission::new);
+        boolean resubmission = s.getId() != null;
         if (s.getFilePath() != null) storage.delete(s.getFilePath()); // replace old file
 
         StoredFile sf = storage.store(file, "submissions");
@@ -78,7 +89,25 @@ public class SubmissionController {
         s.setMarks(null);
         s.setFeedback(null);
         s.setGradedAt(null);
-        return toDto(submissions.save(s));
+        Submission saved = submissions.save(s);
+
+        notifyTeachers(student, a, saved, resubmission);
+        return toDto(saved);
+    }
+
+    /** Record a teacher notification for a new/updated submission (never fails the submit). */
+    private void notifyTeachers(AppUser student, Assignment a, Submission saved, boolean resubmission) {
+        try {
+            Notification n = new Notification();
+            n.setMessage(student.getFullName() + (resubmission ? " re-submitted" : " submitted")
+                    + " \"" + a.getTitle() + "\" (Grade " + a.getGrade() + ")");
+            n.setSubmissionId(saved.getId());
+            n.setAssignmentId(a.getId());
+            n.setFileName(saved.getOriginalName());
+            notifications.save(n);
+        } catch (Exception e) {
+            log.warn("Could not create submission notification for assignment {}", a.getId(), e);
+        }
     }
 
     /** A student's own submissions (with marks & feedback). */

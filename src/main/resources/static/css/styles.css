@@ -324,6 +324,30 @@ input:focus, select:focus, textarea:focus {
 }
 .icon-btn:hover { background: var(--bg); }
 
+/* Teacher notification centre (bell + dropdown) */
+.notif { position: relative; }
+.notif-bell { position: relative; font-size: 1rem; line-height: 1; }
+.notif-badge {
+  position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 4px;
+  background: var(--danger); color: #fff; border-radius: 999px; font-size: 0.68rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--card);
+}
+.notif-panel {
+  position: absolute; right: 0; top: calc(100% + 8px); width: 340px; max-width: 86vw;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); z-index: 50; overflow: hidden; text-align: left;
+}
+.notif-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.notif-list { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
+.notif-list li { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+.notif-list li:last-child { border-bottom: none; }
+.notif-list li.unread { background: rgba(99, 102, 241, 0.10); }
+.notif-msg { font-size: 0.9rem; }
+.notif-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; }
+
 /* Dark-mode fixes for a few hard-coded colours */
 [data-theme="dark"] .graded { background: #064e3b; border-color: #065f46; color: #d1fae5; }
 [data-theme="dark"] .pill.active { background: rgba(129,140,248,0.18); }
