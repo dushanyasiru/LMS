@@ -24,4 +24,5 @@ EXPOSE 80
 # Vercel routes to port 80 by default; bind Spring Boot to $PORT.
 # Use the absolute path to java — Vercel's runtime doesn't include the
 # image's PATH, so a bare "java" resolves to "not found".
-CMD ["sh", "-c", "/opt/java/openjdk/bin/java -Dserver.port=${PORT:-80} -jar app.jar"]
+# Fast-startup JVM flags help bind the port within Vercel's 15s limit.
+CMD ["sh", "-c", "/opt/java/openjdk/bin/java -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Dserver.port=${PORT:-80} -jar app.jar"]
