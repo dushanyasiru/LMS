@@ -24,5 +24,5 @@ COPY --from=build /app/target/lms-0.0.1.jar app.jar
 ENV PORT=8080
 EXPOSE 8080
 
-# Bind to the host-provided port
-CMD ["sh", "-c", "java -Dserver.port=${PORT} -jar app.jar"]
+# Bind to the host-provided port (absolute java path for portability)
+CMD ["sh", "-c", "/opt/java/openjdk/bin/java -Dserver.port=${PORT} -jar app.jar"]

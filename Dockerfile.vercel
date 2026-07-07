@@ -22,4 +22,6 @@ WORKDIR /app
 COPY --from=build /app/target/lms-0.0.1.jar app.jar
 EXPOSE 80
 # Vercel routes to port 80 by default; bind Spring Boot to $PORT.
-CMD ["sh", "-c", "java -Dserver.port=${PORT:-80} -jar app.jar"]
+# Use the absolute path to java — Vercel's runtime doesn't include the
+# image's PATH, so a bare "java" resolves to "not found".
+CMD ["sh", "-c", "/opt/java/openjdk/bin/java -Dserver.port=${PORT:-80} -jar app.jar"]
