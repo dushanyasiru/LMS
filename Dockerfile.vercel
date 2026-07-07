@@ -18,19 +18,25 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/lms-0.0.1.jar app.jar
 
-# Extract the app, then do a "training run" that starts Spring and exits at
-# context-refresh to record a CDS archive. Deferred JPA bootstrap means the
-# refresh completes without a DB, so it exits cleanly. The GC/JIT flags MUST
-# match the runtime CMD below — a CDS archive dumped under one GC cannot be
-# loaded under another (that's why the old archive failed to load).
-RUN /opt/java/openjdk/bin/java -Djarmode=tools -jar app.jar extract --destination application \
- && /opt/java/openjdk/bin/java -XX:ArchiveClassesAtExit=application/application.jsa \
-      -XX:+UseSerialGC -XX:TieredStopAtLevel=1 \
-      -Dspring.context.exit=onRefresh -jar application/app.jar ; true
-
+# Extract the app into ./application. The CDS "training run" and the runtime
+# CMD then run from the SAME working dir (/app/application), with the SAME jar
+# (app.jar), archive (application.jsa) and JVM flags — a dynamic CDS archive is
+# keyed to all of those, so any mismatch makes it "fail to load" at startup.
+# We keep the JDK default GC (G1) on BOTH sides: the JDK's built-in base CDS
+# archive is built for G1, and loading it under a different GC can disable it
+# (which takes our dynamic archive down with it). bootstrap-mode=lazy is set
+# only for the training run so context refresh completes and exits cleanly
+# without a database (there is none at build time), producing a valid archive.
+RUN /opt/java/openjdk/bin/java -Djarmode=tools -jar app.jar extract --destination application
 WORKDIR /app/application
+RUN /opt/java/openjdk/bin/java -XX:ArchiveClassesAtExit=application.jsa \
+      -XX:TieredStopAtLevel=1 \
+      -Dspring.data.jpa.repositories.bootstrap-mode=lazy \
+      -Dspring.context.exit=onRefresh -jar app.jar ; true
+
 EXPOSE 80
 
 # Boot with the CDS archive + fast-start flags. Absolute java path because
-# Vercel's runtime doesn't include the image's PATH.
-CMD ["sh", "-c", "/opt/java/openjdk/bin/java -XX:SharedArchiveFile=application.jsa -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Dserver.port=${PORT:-80} -jar app.jar"]
+# Vercel's runtime doesn't include the image's PATH. Flags/dir/jar match the
+# training run above so the archive loads.
+CMD ["sh", "-c", "/opt/java/openjdk/bin/java -XX:SharedArchiveFile=application.jsa -XX:TieredStopAtLevel=1 -Dserver.port=${PORT:-80} -jar app.jar"]
