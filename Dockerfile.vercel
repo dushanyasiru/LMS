@@ -1,0 +1,25 @@
+# ============================================================
+#  Dockerfile.vercel — deploys the Spring Boot LMS on Vercel.
+#  Vercel detects this exact filename and runs the container on
+#  Fluid compute (Active-CPU pricing, autoscaling, HTTPS URL).
+#
+#  Requirement: the server must listen on $PORT (defaults to 80).
+#  This one image serves BOTH the REST API and the React frontend,
+#  so it's a single service — no vercel.json needed.
+# ============================================================
+
+# ---- Stage 1: build the jar with Maven + JDK 17 ----
+FROM maven:3.9-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml .
+RUN mvn -q -e dependency:go-offline
+COPY src ./src
+RUN mvn -q -DskipTests package
+
+# ---- Stage 2: small runtime image ----
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=build /app/target/lms-0.0.1.jar app.jar
+EXPOSE 80
+# Vercel routes to port 80 by default; bind Spring Boot to $PORT.
+CMD ["sh", "-c", "java -Dserver.port=${PORT:-80} -jar app.jar"]

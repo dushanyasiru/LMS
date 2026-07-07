@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ICT Tuition LMS</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- No-build React: loaded from CDN, JSX compiled in the browser by Babel. -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+    const APP_NAME = "Stack ICT Academy";
+    const CONTACT_PHONE = "0703974113";
+    // WhatsApp uses the international format: 0703974113 -> +94 703974113
+    const WHATSAPP = "https://wa.me/94703974113";
+    const TOKEN_KEY = "lms_token";
+
+    // ============================================================
+    //  API helper
+    // ============================================================
+    const api = {
+      token: () => localStorage.getItem(TOKEN_KEY),
+      setToken: (t) => localStorage.setItem(TOKEN_KEY, t),
+      clear: () => localStorage.removeItem(TOKEN_KEY),
+
+      async request(path, opts = {}) {
+        const headers = Object.assign({}, opts.headers);
+        if (api.token()) headers["Authorization"] = "Bearer " + api.token();
+        if (opts.body && !(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
+        const res = await fetch(path, Object.assign({}, opts, { headers }));
+        if (!res.ok) {
+          let msg = "Request failed (" + res.status + ")";
+          try { const j = await res.json(); if (j.message) msg = j.message; } catch (e) {}
+          throw new Error(msg);
+        }
+        const ct = res.headers.get("content-type") || "";
+        return ct.includes("application/json") ? res.json() : res;
+      },
+
+      // Download a protected file (sends the JWT, then saves the blob).
+      async downloadFile(url, filename) {
+        const headers = {};
+        if (api.token()) headers["Authorization"] = "Bearer " + api.token();
+        const res = await fetch(url, { headers });
+        if (!res.ok) { alert("Download failed (" + res.status + ")"); return; }
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename || "download";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      },
+
+      login: (email, password) =>
+        api.request("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+      me: () => api.request("/api/auth/me"),
+
+      lessons: {
+        list: (grade) => api.request("/api/lessons" + (grade ? "?grade=" + grade : "")),
+        create: (data) => api.request("/api/lessons", { method: "POST", body: JSON.stringify(data) }),
+        remove: (id) => api.request("/api/lessons/" + id, { method: "DELETE" }),
+      },
+      resources: {
+        list: (grade, category) => {
+          const p = new URLSearchParams();
+          if (grade) p.set("grade", grade);
+          if (category) p.set("category", category);
+          const qs = p.toString();
+          return api.request("/api/resources" + (qs ? "?" + qs : ""));
+        },
+        upload: (formData) => api.request("/api/resources", { method: "POST", body: formData }),
+        remove: (id) => api.request("/api/resources/" + id, { method: "DELETE" }),
+        downloadUrl: (id) => "/api/resources/" + id + "/download",
+      },
+      assignments: {
+        list: (grade) => api.request("/api/assignments" + (grade ? "?grade=" + grade : "")),
+        create: (formData) => api.request("/api/assignments", { method: "POST", body: formData }),
+        remove: (id) => api.request("/api/assignments/" + id, { method: "DELETE" }),
+        questionUrl: (id) => "/api/assignments/" + id + "/question",
+      },
+      students: {
+        list: () => api.request("/api/students"),
+        create: (data) => api.request("/api/students", { method: "POST", body: JSON.stringify(data) }),
+        remove: (id) => api.request("/api/students/" + id, { method: "DELETE" }),
+      },
+      teachers: {
+        list: () => api.request("/api/teachers"),
+        create: (data) => api.request("/api/teachers", { method: "POST", body: JSON.stringify(data) }),
+        remove: (id) => api.request("/api/teachers/" + id, { method: "DELETE" }),
+      },
+      submissions: {
+        mine: () => api.request("/api/submissions/mine"),
+        submit: (formData) => api.request("/api/submissions", { method: "POST", body: formData }),
+        forAssignment: (assignmentId) => api.request("/api/submissions/assignment/" + assignmentId),
+        grade: (id, data) => api.request("/api/submissions/" + id + "/grade", { method: "POST", body: JSON.stringify(data) }),
+        downloadUrl: (id) => "/api/submissions/" + id + "/download",
+      },
+    };
+
+    // ============================================================
+    //  App root
+    // ============================================================
+    function App() {
+      const [user, setUser] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [showLogin, setShowLogin] = useState(false);
+
+      useEffect(() => {
+        if (!api.token()) { setLoading(false); return; }
+        api.me().then(setUser).catch(() => api.clear()).finally(() => setLoading(false));
+      }, []);
+
+      if (loading) return <Centered><p className="subtitle" style={{ margin: 0 }}>Loading…</p></Centered>;
+      if (user) return <Dashboard user={user} onLogout={() => { api.clear(); setUser(null); }} />;
+      if (showLogin) return <Login onLogin={setUser} onBack={() => setShowLogin(false)} />;
+      return <Home onLogin={() => setShowLogin(true)} />;
+    }
+
+    function Centered({ children }) {
+      return <div className="center-wrap"><div className="card" style={{ textAlign: "center" }}>{children}</div></div>;
+    }
+
+    // ============================================================
+    //  Login
+    // ============================================================
+    function Login({ onLogin, onBack }) {
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [msg, setMsg] = useState("");
+      const [busy, setBusy] = useState(false);
+
+      async function submit(e) {
+        e.preventDefault();
+        setBusy(true); setMsg("");
+        try {
+          const res = await api.login(email.trim(), password);
+          api.setToken(res.token);
+          onLogin(res.user);
+        } catch (err) { setMsg(err.message); } finally { setBusy(false); }
+      }
+
+      return (
+        <div className="center-wrap">
+          <div className="live-bg" aria-hidden="true">
+            <span className="blob b1"></span>
+            <span className="blob b2"></span>
+            <span className="blob b3"></span>
+          </div>
+          <form className="card" onSubmit={submit}>
+            <img src="/img/logo.jpg" alt={APP_NAME} className="login-logo" />
+            <p className="subtitle">Sign in to continue</p>
+            <label>Email</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+            <label>Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <button className="btn" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+            {msg && <p className="message error">{msg}</p>}
+            {onBack && <p style={{ textAlign: "center", marginTop: 14 }}>
+              <button type="button" className="text-link" onClick={onBack}>← Back to home</button>
+            </p>}
+          </form>
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  Public home / landing page
+    // ============================================================
+    function Home({ onLogin }) {
+      const go = (id) => (e) => {
+        e.preventDefault();
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      return (
+        <div className="home">
+          <header className="home-header">
+            <img src="/img/logo.jpg" alt={APP_NAME} className="home-logo" />
+            <nav className="home-nav">
+              <a href="#about" onClick={go("about")}>About</a>
+              <a href="#offer" onClick={go("offer")}>What you get</a>
+              <a href="#contact" onClick={go("contact")}>Contact</a>
+              <button className="btn-login" onClick={onLogin}>Login</button>
+            </nav>
+          </header>
+
+          <section className="hero">
+            <div className="hero-text">
+              <span className="badge">STACK ICT ACADEMY</span>
+              <h1 className="hero-title">Master <span className="accent">ICT</span> — Now At Your Fingertips!</h1>
+              <div className="teacher-block">
+                <p className="t-name">Dushan Samarawickrama</p>
+                <p className="t-role">Senior Engineer</p>
+                <p className="t-qual">MSc in Advanced Software Engineering</p>
+                <p className="t-qual">BSc in Software Engineering</p>
+              </div>
+              <div className="cta-row">
+                <button className="btn-login lg" onClick={onLogin}>Login</button>
+                <a className="call-card" href={WHATSAPP} target="_blank" rel="noopener noreferrer">💬 Chat on WhatsApp — {CONTACT_PHONE}</a>
+              </div>
+            </div>
+            <div className="hero-photo">
+              <div className="photo-blob"></div>
+              <img src="/img/teacher.jpg" alt="Dushan Samarawickrama" />
+            </div>
+          </section>
+
+          <section className="about-sec" id="about">
+            <h2 className="section-title">About the Teacher</h2>
+            <div className="about-card">
+              <p className="t-name">Dushan Samarawickrama</p>
+              <p className="t-role">Senior Engineer</p>
+              <ul className="qual-list">
+                <li>🎓 MSc in Advanced Software Engineering</li>
+                <li>🎓 BSc in Software Engineering</li>
+              </ul>
+              <p className="muted" style={{ marginBottom: 0 }}>
+                Learn O/L ICT for Grade 10 &amp; 11 with structured lecture notes,
+                past &amp; model papers, and assignments marked with personal feedback.
+              </p>
+            </div>
+          </section>
+
+          <h2 className="section-title" style={{ textAlign: "center" }}>What you get</h2>
+          <section className="offer" id="offer">
+            <div className="offer-card">
+              <div className="offer-icon">📚</div>
+              <h3>Notes, lecture-wise</h3>
+              <p>All your class notes organised by lesson, ready to download anytime.</p>
+            </div>
+            <div className="offer-card">
+              <div className="offer-icon">📝</div>
+              <h3>Past &amp; model papers</h3>
+              <p>Practice with a growing library of papers for Grade 10 &amp; 11.</p>
+            </div>
+            <div className="offer-card">
+              <div className="offer-icon">✅</div>
+              <h3>Assignments &amp; feedback</h3>
+              <p>Submit your answers online and get marks with personal feedback.</p>
+            </div>
+          </section>
+
+          <footer className="home-footer" id="contact">
+            <div>
+              <div className="foot-brand">Stack ICT Academy</div>
+              <p className="muted">Dushan Samarawickrama · Senior Engineer</p>
+            </div>
+            <div className="foot-contact">
+              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer">💬 WhatsApp — {CONTACT_PHONE}</a>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  Dashboard shell
+    // ============================================================
+    function Dashboard({ user, onLogout }) {
+      const [theme, setTheme] = useState(() => localStorage.getItem("lms_theme") || "light");
+      useEffect(() => { localStorage.setItem("lms_theme", theme); }, [theme]);
+      const roleClass = user.role === "TEACHER" ? "role-teacher" : "role-student";
+      return (
+        <div className={"dash " + roleClass} data-theme={theme}>
+          <div className="dash-bg" aria-hidden="true">
+            <span className="blob db1"></span>
+            <span className="blob db2"></span>
+            <span className="blob db3"></span>
+          </div>
+          <div className="topbar">
+            <img src="/img/logo.jpg" alt={APP_NAME} className="topbar-logo" />
+            <div className="topbar-right">
+              <span className="who">{user.name} · {user.role}{user.grade ? " · Grade " + user.grade : ""}</span>
+              <button className="icon-btn" title="Switch light / dark theme"
+                onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}>
+                {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+              </button>
+              <button className="link-btn" onClick={onLogout}>Log out</button>
+            </div>
+          </div>
+          <div className="container">
+            {user.role === "TEACHER" ? <TeacherHome user={user} /> : <StudentHome user={user} />}
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  Small shared bits
+    // ============================================================
+    function GradeTabs({ grade, setGrade }) {
+      return (
+        <div className="grade-tabs">
+          {[10, 11].map((g) => (
+            <button key={g} className={"pill" + (grade === g ? " active" : "")} onClick={() => setGrade(g)}>Grade {g}</button>
+          ))}
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  Teacher dashboard
+    // ============================================================
+    function TeacherHome({ user }) {
+      const [tab, setTab] = useState("lessons");
+      const tabs = [
+        ["lessons", "Lessons & Notes"],
+        ["papers", "Papers"],
+        ["assignments", "Assignments"],
+        ["students", "Students"],
+        ["teachers", "Teachers"],
+      ];
+      return (
+        <div>
+          <div className="tabs">
+            {tabs.map(([key, label]) => (
+              <button key={key} className={"tab" + (tab === key ? " active" : "")} onClick={() => setTab(key)}>{label}</button>
+            ))}
+          </div>
+          {tab === "lessons" && <LessonsPanel />}
+          {tab === "papers" && <PapersPanel />}
+          {tab === "assignments" && <AssignmentsPanel />}
+          {tab === "students" && <StudentsPanel />}
+          {tab === "teachers" && <TeachersPanel me={user} />}
+        </div>
+      );
+    }
+
+    function LessonsPanel() {
+      const [grade, setGrade] = useState(10);
+      const [lessons, setLessons] = useState([]);
+      const [notes, setNotes] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [err, setErr] = useState("");
+      const [title, setTitle] = useState("");
+      const [lessonNo, setLessonNo] = useState("");
+      const [desc, setDesc] = useState("");
+
+      async function load() {
+        setLoading(true); setErr("");
+        try {
+          const [ls, ns] = await Promise.all([api.lessons.list(grade), api.resources.list(grade, "NOTE")]);
+          setLessons(ls); setNotes(ns);
+        } catch (e) { setErr(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, [grade]);
+
+      async function addLesson(e) {
+        e.preventDefault();
+        try {
+          await api.lessons.create({ title, description: desc, grade, lessonNo: lessonNo ? Number(lessonNo) : null });
+          setTitle(""); setLessonNo(""); setDesc(""); load();
+        } catch (e) { alert(e.message); }
+      }
+      async function delLesson(id) {
+        if (!confirm("Delete this lesson and all its notes?")) return;
+        try { await api.lessons.remove(id); load(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div>
+          <GradeTabs grade={grade} setGrade={setGrade} />
+          <div className="card">
+            <h3>Add a lesson</h3>
+            <form onSubmit={addLesson} className="form-grid">
+              <input placeholder="No." type="number" value={lessonNo} onChange={e => setLessonNo(e.target.value)} style={{ maxWidth: 90 }} />
+              <input placeholder="Title (e.g. Number Systems)" value={title} onChange={e => setTitle(e.target.value)} required />
+              <input placeholder="Short description (optional)" value={desc} onChange={e => setDesc(e.target.value)} />
+              <button className="btn-inline">Add lesson</button>
+            </form>
+          </div>
+
+          {loading ? <p className="muted">Loading…</p> :
+            err ? <p className="message error">{err}</p> :
+            lessons.length === 0 ? <p className="muted">No lessons yet for Grade {grade}.</p> :
+            lessons.map((l) => (
+              <LessonCard key={l.id} lesson={l} grade={grade}
+                notes={notes.filter(n => n.lessonId === l.id)}
+                onChange={load} onDelete={() => delLesson(l.id)} />
+            ))
+          }
+        </div>
+      );
+    }
+
+    function LessonCard({ lesson, notes, onChange, onDelete, grade }) {
+      const [file, setFile] = useState(null);
+      const [title, setTitle] = useState("");
+      const [busy, setBusy] = useState(false);
+      const fileRef = useRef();
+
+      async function upload(e) {
+        e.preventDefault();
+        if (!file) { alert("Choose a file first"); return; }
+        setBusy(true);
+        try {
+          const fd = new FormData();
+          fd.append("file", file);
+          fd.append("title", title || file.name);
+          fd.append("category", "NOTE");
+          fd.append("grade", grade);
+          fd.append("lessonId", lesson.id);
+          await api.resources.upload(fd);
+          setTitle(""); setFile(null); if (fileRef.current) fileRef.current.value = "";
+          onChange();
+        } catch (e) { alert(e.message); } finally { setBusy(false); }
+      }
+      async function delNote(id) {
+        if (!confirm("Delete this note?")) return;
+        try { await api.resources.remove(id); onChange(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div className="card">
+          <div className="row-between">
+            <h3 style={{ margin: 0 }}>{lesson.lessonNo ? "Lesson " + lesson.lessonNo + ": " : ""}{lesson.title}</h3>
+            <button className="link-btn danger" onClick={onDelete}>Delete lesson</button>
+          </div>
+          {lesson.description && <p className="muted">{lesson.description}</p>}
+
+          {notes.length === 0 ? <p className="muted">No notes uploaded yet.</p> :
+            <ul className="file-list">
+              {notes.map(n => (
+                <li key={n.id}>
+                  <span>📄 {n.title} <span className="muted">({n.originalName})</span></span>
+                  <span className="actions">
+                    <button className="link-btn" onClick={() => api.downloadFile(api.resources.downloadUrl(n.id), n.originalName)}>Download</button>
+                    <button className="link-btn danger" onClick={() => delNote(n.id)}>Delete</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          }
+
+          <form onSubmit={upload} className="form-inline">
+            <input type="file" ref={fileRef} onChange={e => setFile(e.target.files[0])} />
+            <input placeholder="Note title (optional)" value={title} onChange={e => setTitle(e.target.value)} />
+            <button className="btn-inline" disabled={busy}>{busy ? "Uploading…" : "Upload note"}</button>
+          </form>
+        </div>
+      );
+    }
+
+    function PapersPanel() {
+      const [grade, setGrade] = useState(10);
+      const [papers, setPapers] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [file, setFile] = useState(null);
+      const [title, setTitle] = useState("");
+      const [busy, setBusy] = useState(false);
+      const fileRef = useRef();
+
+      async function load() {
+        setLoading(true);
+        try { setPapers(await api.resources.list(grade, "PAPER")); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, [grade]);
+
+      async function upload(e) {
+        e.preventDefault();
+        if (!file) { alert("Choose a file first"); return; }
+        setBusy(true);
+        try {
+          const fd = new FormData();
+          fd.append("file", file); fd.append("title", title || file.name);
+          fd.append("category", "PAPER"); fd.append("grade", grade);
+          await api.resources.upload(fd);
+          setTitle(""); setFile(null); if (fileRef.current) fileRef.current.value = "";
+          load();
+        } catch (e) { alert(e.message); } finally { setBusy(false); }
+      }
+      async function del(id) {
+        if (!confirm("Delete this paper?")) return;
+        try { await api.resources.remove(id); load(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div>
+          <GradeTabs grade={grade} setGrade={setGrade} />
+          <div className="card">
+            <h3>Upload a paper (Grade {grade})</h3>
+            <form onSubmit={upload} className="form-inline">
+              <input type="file" ref={fileRef} onChange={e => setFile(e.target.files[0])} />
+              <input placeholder="Paper title (e.g. 2024 Model Paper)" value={title} onChange={e => setTitle(e.target.value)} />
+              <button className="btn-inline" disabled={busy}>{busy ? "Uploading…" : "Upload paper"}</button>
+            </form>
+          </div>
+          <div className="card">
+            <h3>Papers — Grade {grade}</h3>
+            {loading ? <p className="muted">Loading…</p> :
+              papers.length === 0 ? <p className="muted">No papers yet.</p> :
+              <ul className="file-list">
+                {papers.map(p => (
+                  <li key={p.id}>
+                    <span>📝 {p.title} <span className="muted">({p.originalName})</span></span>
+                    <span className="actions">
+                      <button className="link-btn" onClick={() => api.downloadFile(api.resources.downloadUrl(p.id), p.originalName)}>Download</button>
+                      <button className="link-btn danger" onClick={() => del(p.id)}>Delete</button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            }
+          </div>
+        </div>
+      );
+    }
+
+    function AssignmentsPanel() {
+      const [grade, setGrade] = useState(10);
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [title, setTitle] = useState("");
+      const [desc, setDesc] = useState("");
+      const [dueDate, setDueDate] = useState("");
+      const [file, setFile] = useState(null);
+      const [busy, setBusy] = useState(false);
+      const fileRef = useRef();
+
+      async function load() {
+        setLoading(true);
+        try { setItems(await api.assignments.list(grade)); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, [grade]);
+
+      async function create(e) {
+        e.preventDefault(); setBusy(true);
+        try {
+          const fd = new FormData();
+          fd.append("title", title); fd.append("description", desc); fd.append("grade", grade);
+          if (dueDate) fd.append("dueDate", dueDate);
+          if (file) fd.append("questionFile", file);
+          await api.assignments.create(fd);
+          setTitle(""); setDesc(""); setDueDate(""); setFile(null); if (fileRef.current) fileRef.current.value = "";
+          load();
+        } catch (e) { alert(e.message); } finally { setBusy(false); }
+      }
+      async function del(id) {
+        if (!confirm("Delete this assignment and all its submissions?")) return;
+        try { await api.assignments.remove(id); load(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div>
+          <GradeTabs grade={grade} setGrade={setGrade} />
+          <div className="card">
+            <h3>Create assignment (Grade {grade})</h3>
+            <form onSubmit={create} className="form-grid">
+              <input placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} required />
+              <input placeholder="Description (optional)" value={desc} onChange={e => setDesc(e.target.value)} />
+              <label className="mini">Due date<input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} /></label>
+              <label className="mini">Question file (optional)<input type="file" ref={fileRef} onChange={e => setFile(e.target.files[0])} /></label>
+              <button className="btn-inline" disabled={busy}>{busy ? "Saving…" : "Create assignment"}</button>
+            </form>
+          </div>
+          <h3 style={{ margin: "18px 0 10px" }}>Assignments — Grade {grade}</h3>
+          {loading ? <p className="muted">Loading…</p> :
+            items.length === 0 ? <p className="muted">No assignments yet.</p> :
+            items.map(a => <TeacherAssignmentRow key={a.id} a={a} onDelete={() => del(a.id)} />)
+          }
+        </div>
+      );
+    }
+
+    function TeacherAssignmentRow({ a, onDelete }) {
+      const [showSubs, setShowSubs] = useState(false);
+      return (
+        <div className="card">
+          <div className="row-between">
+            <span>
+              🗒️ <b>{a.title}</b>{a.dueDate ? <span className="muted"> · due {a.dueDate}</span> : ""}
+              {a.description ? <div className="muted">{a.description}</div> : null}
+            </span>
+            <span className="actions">
+              {a.hasQuestionFile && <button className="link-btn" onClick={() => api.downloadFile(api.assignments.questionUrl(a.id), a.questionOriginalName)}>Question</button>}
+              <button className="link-btn" onClick={() => setShowSubs(s => !s)}>{showSubs ? "Hide submissions" : "Submissions"}</button>
+              <button className="link-btn danger" onClick={onDelete}>Delete</button>
+            </span>
+          </div>
+          {showSubs && <TeacherSubmissions assignmentId={a.id} />}
+        </div>
+      );
+    }
+
+    function TeacherSubmissions({ assignmentId }) {
+      const [subs, setSubs] = useState([]);
+      const [loading, setLoading] = useState(true);
+      async function load() {
+        setLoading(true);
+        try { setSubs(await api.submissions.forAssignment(assignmentId)); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, [assignmentId]);
+      if (loading) return <p className="muted" style={{ marginTop: 10 }}>Loading submissions…</p>;
+      if (subs.length === 0) return <p className="muted" style={{ marginTop: 10 }}>No submissions yet.</p>;
+      return <div className="subs">{subs.map(s => <GradeRow key={s.id} s={s} onGraded={load} />)}</div>;
+    }
+
+    function GradeRow({ s, onGraded }) {
+      const [marks, setMarks] = useState(s.marks != null ? s.marks : "");
+      const [feedback, setFeedback] = useState(s.feedback || "");
+      const [busy, setBusy] = useState(false);
+      async function save(e) {
+        e.preventDefault(); setBusy(true);
+        try {
+          await api.submissions.grade(s.id, { marks: marks === "" ? null : Number(marks), feedback });
+          onGraded();
+        } catch (e) { alert(e.message); } finally { setBusy(false); }
+      }
+      return (
+        <div className="sub-row">
+          <div className="row-between">
+            <span>👩‍🎓 <b>{s.studentName}</b> <span className="muted">· {new Date(s.submittedAt).toLocaleString()}</span></span>
+            <button className="link-btn" onClick={() => api.downloadFile(api.submissions.downloadUrl(s.id), s.originalName)}>Download ({s.originalName})</button>
+          </div>
+          <form onSubmit={save} className="form-inline" style={{ marginTop: 8 }}>
+            <input type="number" placeholder="Marks" value={marks} onChange={e => setMarks(e.target.value)} style={{ maxWidth: 100 }} />
+            <input placeholder="Feedback" value={feedback} onChange={e => setFeedback(e.target.value)} />
+            <button className="btn-inline" disabled={busy}>{busy ? "Saving…" : (s.marks != null ? "Update" : "Save marks")}</button>
+            {s.gradedAt && <span className="muted">✓ graded</span>}
+          </form>
+        </div>
+      );
+    }
+
+    function StudentsPanel() {
+      const [students, setStudents] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [fullName, setFullName] = useState("");
+      const [email, setEmail] = useState("");
+      const [grade, setGrade] = useState(10);
+      const [password, setPassword] = useState("");
+      const [busy, setBusy] = useState(false);
+      const [msg, setMsg] = useState("");
+
+      async function load() {
+        setLoading(true);
+        try { setStudents(await api.students.list()); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, []);
+
+      async function create(e) {
+        e.preventDefault(); setBusy(true); setMsg("");
+        try {
+          await api.students.create({ fullName, email, grade: Number(grade), password });
+          setMsg("✓ Student added: " + email);
+          setFullName(""); setEmail(""); setPassword(""); setGrade(10);
+          load();
+        } catch (e) { setMsg("⚠ " + e.message); } finally { setBusy(false); }
+      }
+      async function del(id) {
+        if (!confirm("Delete this student account?")) return;
+        try { await api.students.remove(id); load(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div>
+          <div className="card">
+            <h3>Add a student</h3>
+            <form onSubmit={create} className="form-grid">
+              <input placeholder="Full name" value={fullName} onChange={e => setFullName(e.target.value)} required />
+              <input placeholder="Email (their login)" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+              <select value={grade} onChange={e => setGrade(e.target.value)}>
+                <option value={10}>Grade 10</option>
+                <option value={11}>Grade 11</option>
+              </select>
+              <input placeholder="Temporary password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <button className="btn-inline" disabled={busy}>{busy ? "Adding…" : "Add student"}</button>
+            </form>
+            {msg && <p className="message" style={{ textAlign: "left" }}>{msg}</p>}
+          </div>
+          <div className="card">
+            <h3>Students</h3>
+            {loading ? <p className="muted">Loading…</p> :
+              students.length === 0 ? <p className="muted">No students yet.</p> :
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr><th>Name</th><th>Email</th><th>Grade</th><th></th></tr></thead>
+                  <tbody>
+                    {students.map(s => (
+                      <tr key={s.id}>
+                        <td>{s.name}</td><td>{s.email}</td><td>{s.grade}</td>
+                        <td><button className="link-btn danger" onClick={() => del(s.id)}>Delete</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      );
+    }
+
+    function TeachersPanel({ me }) {
+      const [teachers, setTeachers] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [fullName, setFullName] = useState("");
+      const [email, setEmail] = useState("");
+      const [password, setPassword] = useState("");
+      const [busy, setBusy] = useState(false);
+      const [msg, setMsg] = useState("");
+
+      async function load() {
+        setLoading(true);
+        try { setTeachers(await api.teachers.list()); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, []);
+
+      async function create(e) {
+        e.preventDefault(); setBusy(true); setMsg("");
+        try {
+          await api.teachers.create({ fullName, email, password });
+          setMsg("✓ Teacher added: " + email);
+          setFullName(""); setEmail(""); setPassword("");
+          load();
+        } catch (e) { setMsg("⚠ " + e.message); } finally { setBusy(false); }
+      }
+      async function del(id) {
+        if (!confirm("Remove this teacher account?")) return;
+        try { await api.teachers.remove(id); load(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div>
+          <div className="card">
+            <h3>Add a teacher</h3>
+            <p className="muted" style={{ marginTop: 0 }}>
+              A new teacher can manage all lessons, papers, assignments, students and marking.
+            </p>
+            <form onSubmit={create} className="form-grid">
+              <input placeholder="Full name" value={fullName} onChange={e => setFullName(e.target.value)} required />
+              <input placeholder="Email (their login)" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+              <input placeholder="Temporary password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <button className="btn-inline" disabled={busy}>{busy ? "Adding…" : "Add teacher"}</button>
+            </form>
+            {msg && <p className="message" style={{ textAlign: "left" }}>{msg}</p>}
+          </div>
+          <div className="card">
+            <h3>Teachers</h3>
+            {loading ? <p className="muted">Loading…</p> :
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
+                  <tbody>
+                    {teachers.map(t => (
+                      <tr key={t.id}>
+                        <td>{t.name}{t.id === me.id ? " (you)" : ""}</td>
+                        <td>{t.email}</td>
+                        <td>{t.id === me.id
+                          ? <span className="muted">—</span>
+                          : <button className="link-btn danger" onClick={() => del(t.id)}>Remove</button>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  Student dashboard
+    // ============================================================
+    function StudentHome({ user }) {
+      const [tab, setTab] = useState("notes");
+      const tabs = [["notes", "Notes"], ["papers", "Papers"], ["assignments", "Assignments"]];
+      return (
+        <div>
+          <div className="tabs">
+            {tabs.map(([k, l]) => (
+              <button key={k} className={"tab" + (tab === k ? " active" : "")} onClick={() => setTab(k)}>{l}</button>
+            ))}
+          </div>
+          {tab === "notes" && <StudentNotes />}
+          {tab === "papers" && <StudentPapers />}
+          {tab === "assignments" && <StudentAssignments />}
+        </div>
+      );
+    }
+
+    function StudentNotes() {
+      const [lessons, setLessons] = useState([]);
+      const [notes, setNotes] = useState([]);
+      const [loading, setLoading] = useState(true);
+      useEffect(() => {
+        (async () => {
+          try {
+            const [ls, ns] = await Promise.all([api.lessons.list(), api.resources.list(null, "NOTE")]);
+            setLessons(ls); setNotes(ns);
+          } catch (e) { alert(e.message); } finally { setLoading(false); }
+        })();
+      }, []);
+      if (loading) return <p className="muted">Loading…</p>;
+      if (lessons.length === 0) return <div className="card"><p className="muted">No lessons yet.</p></div>;
+      return (
+        <div>
+          {lessons.map(l => {
+            const ln = notes.filter(n => n.lessonId === l.id);
+            return (
+              <div className="card" key={l.id}>
+                <h3>{l.lessonNo ? "Lesson " + l.lessonNo + ": " : ""}{l.title}</h3>
+                {l.description && <p className="muted">{l.description}</p>}
+                {ln.length === 0 ? <p className="muted">No notes yet.</p> :
+                  <ul className="file-list">
+                    {ln.map(n => (
+                      <li key={n.id}>
+                        <span>📄 {n.title} <span className="muted">({n.originalName})</span></span>
+                        <button className="link-btn" onClick={() => api.downloadFile(api.resources.downloadUrl(n.id), n.originalName)}>Download</button>
+                      </li>
+                    ))}
+                  </ul>
+                }
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function StudentPapers() {
+      const [papers, setPapers] = useState([]);
+      const [loading, setLoading] = useState(true);
+      useEffect(() => {
+        (async () => {
+          try { setPapers(await api.resources.list(null, "PAPER")); } catch (e) { alert(e.message); } finally { setLoading(false); }
+        })();
+      }, []);
+      return (
+        <div className="card">
+          <h3>Papers</h3>
+          {loading ? <p className="muted">Loading…</p> :
+            papers.length === 0 ? <p className="muted">No papers yet.</p> :
+            <ul className="file-list">
+              {papers.map(p => (
+                <li key={p.id}>
+                  <span>📝 {p.title} <span className="muted">({p.originalName})</span></span>
+                  <button className="link-btn" onClick={() => api.downloadFile(api.resources.downloadUrl(p.id), p.originalName)}>Download</button>
+                </li>
+              ))}
+            </ul>
+          }
+        </div>
+      );
+    }
+
+    function StudentAssignments() {
+      const [items, setItems] = useState([]);
+      const [subs, setSubs] = useState([]);
+      const [loading, setLoading] = useState(true);
+      async function load() {
+        setLoading(true);
+        try {
+          const [as, ms] = await Promise.all([api.assignments.list(), api.submissions.mine()]);
+          setItems(as); setSubs(ms);
+        } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, []);
+      if (loading) return <p className="muted">Loading…</p>;
+      if (items.length === 0) return <div className="card"><p className="muted">No assignments yet.</p></div>;
+      return (
+        <div>
+          {items.map(a => (
+            <StudentAssignmentItem key={a.id} a={a} sub={subs.find(s => s.assignmentId === a.id)} onChange={load} />
+          ))}
+        </div>
+      );
+    }
+
+    function StudentAssignmentItem({ a, sub, onChange }) {
+      const [file, setFile] = useState(null);
+      const [busy, setBusy] = useState(false);
+      const fileRef = useRef();
+      async function submit(e) {
+        e.preventDefault();
+        if (!file) { alert("Choose your answer file first"); return; }
+        setBusy(true);
+        try {
+          const fd = new FormData();
+          fd.append("assignmentId", a.id);
+          fd.append("file", file);
+          await api.submissions.submit(fd);
+          setFile(null); if (fileRef.current) fileRef.current.value = "";
+          onChange();
+        } catch (e) { alert(e.message); } finally { setBusy(false); }
+      }
+      return (
+        <div className="card">
+          <div className="row-between">
+            <h3 style={{ margin: 0 }}>{a.title}</h3>
+            {a.dueDate && <span className="muted">Due {a.dueDate}</span>}
+          </div>
+          {a.description && <p className="muted">{a.description}</p>}
+          {a.hasQuestionFile &&
+            <button className="link-btn" style={{ marginLeft: 0 }} onClick={() => api.downloadFile(api.assignments.questionUrl(a.id), a.questionOriginalName)}>Download question</button>}
+          <hr className="sep" />
+          {sub ? (
+            <div>
+              <p style={{ margin: "6px 0" }}>✅ Submitted: <b>{sub.originalName}</b> <span className="muted">on {new Date(sub.submittedAt).toLocaleString()}</span></p>
+              {sub.marks != null ? (
+                <div className="graded">
+                  <b>Marks: {sub.marks}</b>
+                  {sub.feedback && <p style={{ margin: "6px 0 0" }}><span className="muted">Feedback:</span> {sub.feedback}</p>}
+                </div>
+              ) : <p className="muted">Not marked yet.</p>}
+            </div>
+          ) : <p className="muted">Not submitted yet.</p>}
+          <form onSubmit={submit} className="form-inline" style={{ marginTop: 10 }}>
+            <input type="file" ref={fileRef} onChange={e => setFile(e.target.files[0])} />
+            <button className="btn-inline" disabled={busy}>{busy ? "Uploading…" : (sub ? "Re-submit" : "Submit answer")}</button>
+          </form>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

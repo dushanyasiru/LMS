@@ -1,0 +1,9 @@
+# Keep the build context small and never ship secrets/build output
+target/
+uploads/
+.git/
+.idea/
+*.iml
+.vscode/
+# Secrets are provided as environment variables on the host, not baked in:
+src/main/resources/application-secret.properties

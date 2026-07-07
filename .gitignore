@@ -1,0 +1,15 @@
+# Maven build output
+target/
+
+# Secrets (DB password, JWT key) — never commit
+application-secret.properties
+src/main/resources/application-secret.properties
+
+# Local database file / uploaded files
+/data/
+uploads/
+
+# IDE
+.idea/
+*.iml
+.vscode/

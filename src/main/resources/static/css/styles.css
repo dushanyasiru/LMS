@@ -1,0 +1,376 @@
+/* ============================================================
+   Shared styles for the ICT Tuition LMS
+   Plain CSS — no framework, easy to tweak.
+   ============================================================ */
+
+:root {
+  --brand: #4f46e5;        /* indigo */
+  --brand-dark: #4338ca;
+  --bg: #f5f6fa;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --danger: #dc2626;
+  --ok: #16a34a;
+  --radius: 12px;
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark theme — applied on the dashboard wrapper via data-theme="dark" */
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #334155;
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+
+/* Buttons don't inherit text colour by default — make them follow the theme
+   (specific button styles below still override this where needed). */
+button { color: inherit; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.center-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(900px 500px at 50% -120px, #e7ebff 0%, transparent 62%),
+              linear-gradient(160deg, #f8fafc 0%, #f5f3ff 100%);
+}
+
+/* Live animated gradient blobs behind the login card */
+.live-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.live-bg .blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; will-change: transform; }
+.live-bg .b1 { width: 440px; height: 440px; background: #a5b4fc; top: -90px; left: -70px; animation: floatA 18s ease-in-out infinite; }
+.live-bg .b2 { width: 380px; height: 380px; background: #d8b4fe; bottom: -110px; right: -70px; animation: floatB 23s ease-in-out infinite; }
+.live-bg .b3 { width: 320px; height: 320px; background: #93c5fd; top: 45%; left: 58%; animation: floatC 27s ease-in-out infinite; }
+.center-wrap .card { position: relative; z-index: 1; }
+
+@keyframes floatA { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(70px, 50px) scale(1.12); } }
+@keyframes floatB { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-55px, -35px) scale(1.18); } }
+@keyframes floatC { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-45px, 55px) scale(0.9); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .live-bg .blob { animation: none; }
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--brand);
+  text-align: center;
+  margin: 0 0 4px;
+}
+
+.subtitle { text-align: center; color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+
+.status-pill {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.status-pill.ok { background: #dcfce7; color: var(--ok); }
+.status-pill.bad { background: #fee2e2; color: var(--danger); }
+.status-pill.wait { background: #e5e7eb; color: var(--muted); }
+
+label { display: block; font-size: 0.85rem; font-weight: 600; margin: 14px 0 6px; }
+
+input, select, textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 8px; font-size: 1rem; font-family: inherit;
+  background: var(--card); color: var(--text);
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.btn {
+  display: inline-block; width: 100%; margin-top: 20px; padding: 11px 16px;
+  background: var(--brand); color: #fff; border: none; border-radius: 8px;
+  font-size: 1rem; font-weight: 600; cursor: pointer;
+}
+.btn:hover { background: var(--brand-dark); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.message { margin-top: 16px; font-size: 0.9rem; min-height: 1.2em; text-align: center; }
+.message.error { color: var(--danger); }
+.message.ok { color: var(--ok); }
+
+/* ---------- Dashboard ---------- */
+/* Login card stays narrow; dashboard cards go full width. */
+.center-wrap .card { max-width: 420px; }
+.container .card { max-width: 100%; margin-bottom: 20px; text-align: left; }
+
+.topbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.topbar .brand { text-align: left; margin: 0; font-size: 1.2rem; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.who { color: var(--muted); font-size: 0.9rem; }
+
+.container { max-width: 960px; margin: 24px auto; padding: 0 20px; }
+
+.link-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: inherit;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-left: 6px;
+}
+.link-btn:hover { background: var(--bg); }
+.link-btn.danger { color: var(--danger); border-color: #f3c6c6; }
+.link-btn.danger:hover { background: #fef2f2; }
+
+.muted { color: var(--muted); }
+
+/* Tabs */
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.tab {
+  background: var(--card); border: 1px solid var(--border); color: inherit;
+  padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 0.9rem; font-weight: 600;
+}
+.tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+/* Grade pills */
+.grade-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.pill {
+  background: var(--card); border: 1px solid var(--border); color: inherit;
+  padding: 7px 16px; border-radius: 999px; cursor: pointer; font-size: 0.9rem;
+}
+.pill.active { background: #eef2ff; color: var(--brand); border-color: var(--brand); font-weight: 600; }
+
+/* Cards contain headings */
+.card h3 { margin-top: 0; }
+
+/* Forms */
+.form-grid, .form-inline {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+}
+.form-grid input:not([type=number]):not([type=file]):not([type=date]) { flex: 1; min-width: 180px; }
+.form-inline input:not([type=file]) { flex: 1; min-width: 160px; }
+.mini { display: flex; flex-direction: column; font-size: 0.8rem; font-weight: 600; color: var(--muted); gap: 4px; margin: 0; }
+.mini input { font-weight: normal; }
+
+.btn-inline {
+  background: var(--brand); color: #fff; border: none;
+  padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  white-space: nowrap;
+}
+.btn-inline:hover { background: var(--brand-dark); }
+.btn-inline:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* File / item lists */
+.file-list { list-style: none; padding: 0; margin: 12px 0; }
+.file-list li {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap;
+}
+.file-list li:first-child { border-top: none; }
+.file-list .actions { white-space: nowrap; }
+
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ============================================================
+   Public home / landing page
+   ============================================================ */
+.home { min-height: 100vh; background: linear-gradient(160deg, #ffffff 0%, #f3f0ff 55%, #f7f4ff 100%); }
+
+.home-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 6vw; background: #fff; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10; flex-wrap: wrap; gap: 10px;
+}
+.home-logo { height: 46px; width: auto; }
+.home-nav { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.home-nav a { color: var(--text); text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+.home-nav a:hover { color: var(--brand); }
+
+.btn-login {
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  color: #fff; border: none; padding: 10px 22px; border-radius: 10px;
+  font-weight: 700; cursor: pointer; font-size: 0.95rem;
+}
+.btn-login:hover { filter: brightness(1.05); }
+.btn-login.lg { padding: 14px 34px; font-size: 1.05rem; }
+
+.hero {
+  display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px;
+  align-items: center; padding: 6vh 6vw; max-width: 1200px; margin: 0 auto;
+}
+.badge {
+  display: inline-block; background: #ede9fe; color: #6d28d9;
+  padding: 8px 18px; border-radius: 999px; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.5px;
+}
+.hero-title { font-size: clamp(2.1rem, 5vw, 3.6rem); line-height: 1.1; margin: 18px 0; font-weight: 800; color: #1f2937; }
+.hero-title .accent { color: #6d28d9; }
+.teacher-block { margin: 18px 0 26px; }
+.t-name { font-size: 1.35rem; font-weight: 800; margin: 0; color: #1f2937; }
+.t-role { font-size: 1.05rem; color: var(--brand); font-weight: 700; margin: 2px 0 8px; }
+.t-qual { margin: 2px 0; color: var(--muted); }
+.cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.call-card {
+  background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow);
+  padding: 13px 22px; border-radius: 12px; font-weight: 700; color: #1f2937; text-decoration: none;
+}
+
+.hero-photo { position: relative; display: flex; justify-content: center; }
+.hero-photo img {
+  position: relative; width: 100%; max-width: 360px; border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(80, 40, 160, 0.25); object-fit: cover; z-index: 1;
+}
+.photo-blob {
+  position: absolute; width: 80%; height: 88%; top: 6%; left: 50%; transform: translateX(-50%) rotate(-6deg);
+  background: linear-gradient(135deg, #a855f7, #6366f1); border-radius: 26px; z-index: 0;
+}
+
+.offer {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+  max-width: 1100px; margin: 10px auto 60px; padding: 0 6vw;
+}
+.offer-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
+.offer-icon { font-size: 2rem; }
+.offer-card h3 { margin: 12px 0 8px; }
+.offer-card p { color: var(--muted); margin: 0; }
+
+.home-footer {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+  padding: 30px 6vw; background: #1f2937; color: #fff;
+}
+.foot-brand { font-size: 1.3rem; font-weight: 800; }
+.home-footer .muted { color: #cbd5e1; margin: 4px 0 0; }
+.foot-contact a { color: #fff; text-decoration: none; font-weight: 700; font-size: 1.05rem; }
+
+.topbar-logo { height: 48px; width: auto; background: #fff; padding: 5px 12px; border-radius: 10px; }
+.login-logo { display: block; max-width: 210px; height: auto; margin: 0 auto 12px; }
+.text-link { background: none; border: none; color: var(--brand); cursor: pointer; font-size: 0.9rem; text-decoration: underline; padding: 0; }
+
+@media (max-width: 780px) {
+  .hero { grid-template-columns: 1fr; text-align: center; }
+  .hero-photo { order: -1; }
+  .cta-row { justify-content: center; }
+  .offer { grid-template-columns: 1fr; }
+}
+
+/* Submissions / grading */
+.sep { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.graded { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 12px; }
+.subs { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.sub-row { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; background: var(--bg); }
+
+/* Tables */
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.table th, .table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+.table th { color: var(--muted); font-weight: 600; }
+
+/* ============================================================
+   Dashboard themes (light/dark toggle + per-role accent & tint)
+   ============================================================ */
+.dash { min-height: 100vh; color: var(--text); }
+
+/* Per-role accent colour (teacher = indigo, student = teal) */
+.dash.role-teacher { --brand: #4f46e5; --brand-dark: #4338ca; }
+.dash.role-student { --brand: #0d9488; --brand-dark: #0f766e; }
+.dash[data-theme="dark"].role-teacher { --brand: #818cf8; --brand-dark: #6366f1; }
+.dash[data-theme="dark"].role-student { --brand: #2dd4bf; --brand-dark: #14b8a6; }
+
+/* Simple, modern backgrounds: a soft accent glow fading into a clean neutral */
+.dash.role-teacher:not([data-theme="dark"]) { background: radial-gradient(1100px 420px at 50% -160px, #e7ebff 0%, transparent 68%), #f7f8fc; }
+.dash.role-student:not([data-theme="dark"]) { background: radial-gradient(1100px 420px at 50% -160px, #d9f6ef 0%, transparent 68%), #f6faf9; }
+.dash[data-theme="dark"].role-teacher { background: radial-gradient(1000px 400px at 50% -160px, rgba(129,140,248,0.16) 0%, transparent 70%), #0f172a; }
+.dash[data-theme="dark"].role-student { background: radial-gradient(1000px 400px at 50% -160px, rgba(45,212,191,0.13) 0%, transparent 70%), #0f172a; }
+
+/* Theme toggle button */
+.icon-btn {
+  background: none; border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+}
+.icon-btn:hover { background: var(--bg); }
+
+/* Dark-mode fixes for a few hard-coded colours */
+[data-theme="dark"] .graded { background: #064e3b; border-color: #065f46; color: #d1fae5; }
+[data-theme="dark"] .pill.active { background: rgba(129,140,248,0.18); }
+[data-theme="dark"] .link-btn.danger { border-color: #7f1d1d; }
+[data-theme="dark"] .link-btn.danger:hover { background: #3f1d1d; }
+
+/* ============================================================
+   About section + section headings (home page)
+   ============================================================ */
+.section-title { max-width: 1100px; margin: 10px auto 6px; padding: 0 6vw; font-size: 1.6rem; color: #1f2937; }
+.about-sec { max-width: 1100px; margin: 0 auto 30px; padding: 0 6vw; }
+.about-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
+.qual-list { list-style: none; padding: 0; margin: 10px 0 14px; }
+.qual-list li { padding: 4px 0; font-weight: 600; color: #1f2937; }
+
+/* keep sticky header from covering scroll targets */
+.hero, .about-sec, .offer, .home-footer, .section-title { scroll-margin-top: 90px; }
+
+/* ============================================================
+   Live animated blobs on the dashboards (fixed behind content)
+   ============================================================ */
+.dash .topbar { position: relative; z-index: 3; }
+.dash > .container { position: relative; z-index: 1; }
+
+.dash-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.dash-bg .blob { opacity: 0.4; }
+.dash-bg .db1 { width: 480px; height: 480px; top: -120px; left: -80px; animation: floatA 20s ease-in-out infinite; }
+.dash-bg .db2 { width: 420px; height: 420px; bottom: -140px; right: -90px; animation: floatB 25s ease-in-out infinite; }
+.dash-bg .db3 { width: 360px; height: 360px; top: 42%; left: 60%; animation: floatC 30s ease-in-out infinite; }
+
+/* teacher (indigo) — light */
+.dash.role-teacher:not([data-theme="dark"]) .db1 { background: #c7d2fe; }
+.dash.role-teacher:not([data-theme="dark"]) .db2 { background: #ddd6fe; }
+.dash.role-teacher:not([data-theme="dark"]) .db3 { background: #bfdbfe; }
+/* student (teal) — light */
+.dash.role-student:not([data-theme="dark"]) .db1 { background: #99f6e4; }
+.dash.role-student:not([data-theme="dark"]) .db2 { background: #a7f3d0; }
+.dash.role-student:not([data-theme="dark"]) .db3 { background: #bae6fd; }
+/* dark — subtler */
+.dash[data-theme="dark"] .dash-bg .blob { opacity: 0.26; }
+.dash[data-theme="dark"].role-teacher .db1 { background: #6366f1; }
+.dash[data-theme="dark"].role-teacher .db2 { background: #8b5cf6; }
+.dash[data-theme="dark"].role-teacher .db3 { background: #3b82f6; }
+.dash[data-theme="dark"].role-student .db1 { background: #14b8a6; }
+.dash[data-theme="dark"].role-student .db2 { background: #10b981; }
+.dash[data-theme="dark"].role-student .db3 { background: #0ea5e9; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-bg .blob { animation: none; }
+}
