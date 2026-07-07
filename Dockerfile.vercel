@@ -1,14 +1,11 @@
 # ============================================================
-#  Dockerfile.vercel — deploys the Spring Boot LMS on Vercel.
-#  Vercel detects this exact filename and runs the container on
-#  Fluid compute (Active-CPU pricing, autoscaling, HTTPS URL).
-#
-#  Requirement: the server must listen on $PORT (defaults to 80).
-#  This one image serves BOTH the REST API and the React frontend,
-#  so it's a single service — no vercel.json needed.
+#  Dockerfile.vercel — Spring Boot LMS on Vercel (Container / Fluid).
+#  Vercel gives a container ~15s to open its port on cold start, so we
+#  use CDS (Class Data Sharing) + fast-startup flags + lazy init to boot
+#  fast enough. Server must listen on $PORT (default 80).
 # ============================================================
 
-# ---- Stage 1: build the jar with Maven + JDK 17 ----
+# ---- Stage 1: build the jar ----
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
@@ -16,13 +13,20 @@ RUN mvn -q -e dependency:go-offline
 COPY src ./src
 RUN mvn -q -DskipTests package
 
-# ---- Stage 2: small runtime image ----
+# ---- Stage 2: runtime with a prebuilt CDS archive for fast startup ----
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/lms-0.0.1.jar app.jar
+
+# Extract the app, then do a "training run" that starts Spring and exits at
+# context-refresh (no DB needed thanks to lazy init) to record a CDS archive.
+RUN /opt/java/openjdk/bin/java -Djarmode=tools -jar app.jar extract --destination application \
+ && /opt/java/openjdk/bin/java -XX:ArchiveClassesAtExit=application/application.jsa \
+      -Dspring.context.exit=onRefresh -jar application/app.jar ; true
+
+WORKDIR /app/application
 EXPOSE 80
-# Vercel routes to port 80 by default; bind Spring Boot to $PORT.
-# Use the absolute path to java — Vercel's runtime doesn't include the
-# image's PATH, so a bare "java" resolves to "not found".
-# Fast-startup JVM flags help bind the port within Vercel's 15s limit.
-CMD ["sh", "-c", "/opt/java/openjdk/bin/java -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Dserver.port=${PORT:-80} -jar app.jar"]
+
+# Boot with the CDS archive + fast-start flags. Absolute java path because
+# Vercel's runtime doesn't include the image's PATH.
+CMD ["sh", "-c", "/opt/java/openjdk/bin/java -XX:SharedArchiveFile=application.jsa -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Dserver.port=${PORT:-80} -jar app.jar"]
