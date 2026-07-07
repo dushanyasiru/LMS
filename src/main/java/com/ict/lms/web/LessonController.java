@@ -39,14 +39,21 @@ public class LessonController {
         this.storage = storage;
     }
 
-    /** List lessons. Students always see only their own grade. */
+    /** List lessons. Students see their own grade and every grade below it (Grade 11 -> 10 & 11). */
     @GetMapping
     public List<LessonDto> list(@RequestParam(required = false) Integer grade,
                                 @AuthenticationPrincipal AuthUser user) {
-        Integer effectiveGrade = (user.role() == Role.STUDENT) ? user.grade() : grade;
-        List<Lesson> result = (effectiveGrade == null)
-                ? lessons.findAll()
-                : lessons.findByGradeOrderByLessonNoAsc(effectiveGrade);
+        List<Lesson> result;
+        if (user.role() == Role.STUDENT) {
+            Integer studentGrade = user.grade();
+            result = (studentGrade == null)
+                    ? List.of()
+                    : lessons.findByGradeLessThanEqualOrderByGradeAscLessonNoAsc(studentGrade);
+        } else {
+            result = (grade == null)
+                    ? lessons.findAll()
+                    : lessons.findByGradeOrderByLessonNoAsc(grade);
+        }
         return result.stream().map(this::toDto).toList();
     }
 

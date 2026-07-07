@@ -48,9 +48,14 @@ public class AssignmentController {
     @GetMapping
     public List<AssignmentDto> list(@RequestParam(required = false) Integer grade,
                                     @AuthenticationPrincipal AuthUser user) {
-        Integer effectiveGrade = (user.role() == Role.STUDENT) ? user.grade() : grade;
+        boolean student = user.role() == Role.STUDENT;
+        Integer studentGrade = user.grade();
         return assignments.findAll().stream()
-                .filter(a -> effectiveGrade == null || effectiveGrade.equals(a.getGrade()))
+                // Students see their grade and every grade below it (Grade 11 -> 10 & 11);
+                // teachers see the grade they picked (or all grades when none is chosen).
+                .filter(a -> student
+                        ? (studentGrade != null && a.getGrade() != null && a.getGrade() <= studentGrade)
+                        : (grade == null || grade.equals(a.getGrade())))
                 .sorted(Comparator.comparing(Assignment::getCreatedAt).reversed())
                 .map(this::toDto)
                 .toList();
@@ -83,7 +88,8 @@ public class AssignmentController {
                                                                          @AuthenticationPrincipal AuthUser user) {
         Assignment a = assignments.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        if (user.role() == Role.STUDENT && !a.getGrade().equals(user.grade())) {
+        if (user.role() == Role.STUDENT
+                && (user.grade() == null || a.getGrade() == null || a.getGrade() > user.grade())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not for your grade");
         }
         if (a.getQuestionFilePath() == null) {

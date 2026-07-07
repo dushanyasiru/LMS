@@ -49,12 +49,17 @@ public class ResourceController {
     public List<ResourceDto> list(@RequestParam(required = false) Integer grade,
                                   @RequestParam(required = false) String category,
                                   @AuthenticationPrincipal AuthUser user) {
-        Integer effectiveGrade = (user.role() == Role.STUDENT) ? user.grade() : grade;
+        boolean student = user.role() == Role.STUDENT;
+        Integer studentGrade = user.grade();
         Category cat = (category == null || category.isBlank())
                 ? null : Category.valueOf(category.trim().toUpperCase());
 
         return resources.findAll().stream()
-                .filter(r -> effectiveGrade == null || effectiveGrade.equals(r.getGrade()))
+                // Students see their grade and every grade below it (Grade 11 -> 10 & 11).
+                // Teachers see the grade they picked (or all grades when none is chosen).
+                .filter(r -> student
+                        ? (studentGrade != null && r.getGrade() != null && r.getGrade() <= studentGrade)
+                        : (grade == null || grade.equals(r.getGrade())))
                 .filter(r -> cat == null || r.getCategory() == cat)
                 .sorted(Comparator.comparing(Resource::getCreatedAt).reversed())
                 .map(this::toDto)
@@ -88,7 +93,8 @@ public class ResourceController {
                                                                          @AuthenticationPrincipal AuthUser user) {
         Resource r = resources.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
-        if (user.role() == Role.STUDENT && !r.getGrade().equals(user.grade())) {
+        if (user.role() == Role.STUDENT
+                && (user.grade() == null || r.getGrade() == null || r.getGrade() > user.grade())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not available for your grade");
         }
         org.springframework.core.io.Resource file = storage.loadAsResource(r.getFilePath());

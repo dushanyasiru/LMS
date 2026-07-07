@@ -809,7 +809,7 @@
             const ln = notes.filter(n => n.lessonId === l.id);
             return (
               <div className="card" key={l.id}>
-                <h3>{l.lessonNo ? "Lesson " + l.lessonNo + ": " : ""}{l.title}</h3>
+                <h3>{l.lessonNo ? "Lesson " + l.lessonNo + ": " : ""}{l.title} <span className="muted" style={{ fontWeight: "normal", fontSize: "0.8em" }}>· Grade {l.grade}</span></h3>
                 {l.description && <p className="muted">{l.description}</p>}
                 {ln.length === 0 ? <p className="muted">No notes yet.</p> :
                   <ul className="file-list">
@@ -844,7 +844,7 @@
             <ul className="file-list">
               {papers.map(p => (
                 <li key={p.id}>
-                  <span>📝 {p.title} <span className="muted">({p.originalName})</span></span>
+                  <span>📝 {p.title} <span className="muted">· Grade {p.grade} · {p.originalName}</span></span>
                   <button className="link-btn" onClick={() => api.downloadFile(api.resources.downloadUrl(p.id), p.originalName)}>Download</button>
                 </li>
               ))}
@@ -897,7 +897,7 @@
       return (
         <div className="card">
           <div className="row-between">
-            <h3 style={{ margin: 0 }}>{a.title}</h3>
+            <h3 style={{ margin: 0 }}>{a.title} <span className="muted" style={{ fontWeight: "normal", fontSize: "0.8em" }}>· Grade {a.grade}</span></h3>
             {a.dueDate && <span className="muted">Due {a.dueDate}</span>}
           </div>
           {a.description && <p className="muted">{a.description}</p>}
