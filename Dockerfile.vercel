@@ -19,9 +19,13 @@ WORKDIR /app
 COPY --from=build /app/target/lms-0.0.1.jar app.jar
 
 # Extract the app, then do a "training run" that starts Spring and exits at
-# context-refresh (no DB needed thanks to lazy init) to record a CDS archive.
+# context-refresh to record a CDS archive. Deferred JPA bootstrap means the
+# refresh completes without a DB, so it exits cleanly. The GC/JIT flags MUST
+# match the runtime CMD below — a CDS archive dumped under one GC cannot be
+# loaded under another (that's why the old archive failed to load).
 RUN /opt/java/openjdk/bin/java -Djarmode=tools -jar app.jar extract --destination application \
  && /opt/java/openjdk/bin/java -XX:ArchiveClassesAtExit=application/application.jsa \
+      -XX:+UseSerialGC -XX:TieredStopAtLevel=1 \
       -Dspring.context.exit=onRefresh -jar application/app.jar ; true
 
 WORKDIR /app/application
