@@ -57,7 +57,8 @@ public class SubmissionController {
                                 @AuthenticationPrincipal AuthUser user) {
         Assignment a = assignments.findById(assignmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignment not found"));
-        if (!a.getGrade().equals(user.grade())) {
+        // Students may submit to their own grade and every grade below it (Grade 11 -> 10 & 11).
+        if (user.grade() == null || a.getGrade() == null || a.getGrade() > user.grade()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not for your grade");
         }
         AppUser student = users.findById(user.id())
