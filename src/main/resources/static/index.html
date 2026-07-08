@@ -25,10 +25,13 @@
     // ============================================================
     //  API helper
     // ============================================================
+    // Auth token lives in sessionStorage (NOT localStorage) so it is cleared
+    // when the window/tab is closed. On a shared classroom PC this means the
+    // next person must log in again instead of inheriting the previous session.
     const api = {
-      token: () => localStorage.getItem(TOKEN_KEY),
-      setToken: (t) => localStorage.setItem(TOKEN_KEY, t),
-      clear: () => localStorage.removeItem(TOKEN_KEY),
+      token: () => sessionStorage.getItem(TOKEN_KEY),
+      setToken: (t) => sessionStorage.setItem(TOKEN_KEY, t),
+      clear: () => sessionStorage.removeItem(TOKEN_KEY),
 
       async request(path, opts = {}) {
         const headers = Object.assign({}, opts.headers);
@@ -111,6 +114,10 @@
         clearAll: () => api.request("/api/notifications", { method: "DELETE" }),
       },
     };
+
+    // Older builds stored the token in localStorage (persisted across window
+    // closes). Remove any leftover so it can never auto-log-in the next person.
+    try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
 
     // ============================================================
     //  App root
