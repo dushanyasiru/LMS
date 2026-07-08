@@ -113,6 +113,21 @@
         markAllRead: () => api.request("/api/notifications/read-all", { method: "POST" }),
         clearAll: () => api.request("/api/notifications", { method: "DELETE" }),
       },
+      classes: {
+        list: () => api.request("/api/classes"),
+        create: (data) => api.request("/api/classes", { method: "POST", body: JSON.stringify(data) }),
+        update: (id, data) => api.request("/api/classes/" + id, { method: "PUT", body: JSON.stringify(data) }),
+        remove: (id) => api.request("/api/classes/" + id, { method: "DELETE" }),
+        sessions: (id) => api.request("/api/classes/" + id + "/sessions"),
+        addSession: (id, date) => api.request("/api/classes/" + id + "/sessions", { method: "POST", body: JSON.stringify({ date }) }),
+        editSession: (id, sid, date) => api.request("/api/classes/" + id + "/sessions/" + sid, { method: "PUT", body: JSON.stringify({ date }) }),
+        deleteSession: (id, sid) => api.request("/api/classes/" + id + "/sessions/" + sid, { method: "DELETE" }),
+        fees: (id) => api.request("/api/classes/" + id + "/fees"),
+        setFee: (id, studentId, status) => api.request("/api/classes/" + id + "/fees/" + studentId, { method: "PUT", body: JSON.stringify({ status }) }),
+        available: (id) => api.request("/api/classes/" + id + "/available"),
+        enroll: (id, studentId) => api.request("/api/classes/" + id + "/students", { method: "POST", body: JSON.stringify({ studentId }) }),
+        unenroll: (id, studentId) => api.request("/api/classes/" + id + "/students/" + studentId, { method: "DELETE" }),
+      },
     };
 
     // Older builds stored the token in localStorage (persisted across window
@@ -408,6 +423,7 @@
         ["lessons", "Lessons & Notes"],
         ["papers", "Papers"],
         ["assignments", "Assignments"],
+        ["classes", "Classes & Fees"],
         ["students", "Students"],
         ["teachers", "Teachers"],
       ];
@@ -421,6 +437,7 @@
           {tab === "lessons" && <LessonsPanel />}
           {tab === "papers" && <PapersPanel />}
           {tab === "assignments" && <AssignmentsPanel />}
+          {tab === "classes" && <ClassesPanel />}
           {tab === "students" && <StudentsPanel />}
           {tab === "teachers" && <TeachersPanel me={user} />}
         </div>
@@ -857,6 +874,268 @@
               </div>
             }
           </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  Classes & Fees (teacher)
+    // ============================================================
+    const CLASS_MEDIUMS = ["Sinhala", "English", "Tamil"];
+    const CLASS_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    const FEE_OPTIONS = [["PAID", "🟢 Paid"], ["PARTIAL", "🟡 Partial"], ["PENDING", "🔴 Pending"], ["WAIVED", "🔵 Waived"]];
+
+    function money(v) { return v == null || v === "" ? "—" : "Rs. " + Number(v).toLocaleString(); }
+    function fmtDate(iso) {
+      if (!iso) return "";
+      const [y, m, d] = iso.split("-");
+      return d + "/" + m + "/" + y;
+    }
+
+    function ClassesPanel() {
+      const [classes, setClasses] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [selectedId, setSelectedId] = useState(null);
+      const [editing, setEditing] = useState(null); // class object, {} for new, or null
+
+      async function load() {
+        setLoading(true);
+        try { setClasses(await api.classes.list()); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, []);
+
+      const selected = classes.find(c => c.id === selectedId) || null;
+
+      async function saveClass(data, id) {
+        if (id) await api.classes.update(id, data); else await api.classes.create(data);
+        setEditing(null); await load();
+      }
+      async function delClass(c) {
+        if (!confirm('Delete class "' + c.name + '" and all its dates & fee records?')) return;
+        try { await api.classes.remove(c.id); if (selectedId === c.id) setSelectedId(null); await load(); }
+        catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div>
+          <div className="row-between" style={{ marginBottom: 14 }}>
+            <h2 style={{ margin: 0 }}>Classes &amp; Fees</h2>
+            {!editing && <button className="btn-inline" onClick={() => setEditing({})}>+ New class</button>}
+          </div>
+
+          {editing && <ClassForm initial={editing} onSave={saveClass} onCancel={() => setEditing(null)} />}
+
+          {loading ? <p className="muted">Loading…</p> :
+            classes.length === 0 ? (!editing && <div className="card"><p className="muted" style={{ margin: 0 }}>No classes yet. Click “+ New class” to add one.</p></div>) :
+            <div className="class-grid">
+              {classes.map(c => (
+                <ClassCard key={c.id} c={c} selected={selectedId === c.id}
+                  onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
+                  onEdit={() => setEditing(c)} onDelete={() => delClass(c)} />
+              ))}
+            </div>
+          }
+
+          {selected && (
+            <div className="class-detail">
+              <h3 className="detail-title">{selected.name}{selected.grade ? " · Grade " + selected.grade : ""}</h3>
+              <div className="detail-grid">
+                <ClassSessions classId={selected.id} />
+                <ClassFees classId={selected.id} />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ClassCard({ c, selected, onSelect, onEdit, onDelete }) {
+      return (
+        <div className={"class-card" + (selected ? " selected" : "")} onClick={onSelect}>
+          <div className="cc-top">
+            <span className={"status-badge " + (c.status === "ACTIVE" ? "st-active" : "st-inactive")}>{c.status === "ACTIVE" ? "Active" : "Inactive"}</span>
+            <span className="cc-actions" onClick={e => e.stopPropagation()}>
+              <button className="link-btn" onClick={onEdit}>Edit</button>
+              <button className="link-btn danger" onClick={onDelete}>Delete</button>
+            </span>
+          </div>
+          <h3 className="cc-name">{c.name}</h3>
+          <p className="cc-sub muted">{[c.subject, c.grade ? "Grade " + c.grade : null, c.medium].filter(Boolean).join(" · ") || "—"}</p>
+          <div className="cc-meta">
+            <span>📅 {c.dayOfWeek || "—"}</span>
+            <span className="cc-fee">{money(c.monthlyFee)}/mo</span>
+          </div>
+          <div className="cc-hint muted">{selected ? "▲ Selected — details below" : "Tap to manage dates & fees"}</div>
+        </div>
+      );
+    }
+
+    function ClassForm({ initial, onSave, onCancel }) {
+      const isEdit = !!initial.id;
+      const [name, setName] = useState(initial.name || "");
+      const [subject, setSubject] = useState(initial.subject || "");
+      const [grade, setGrade] = useState(initial.grade || 11);
+      const [medium, setMedium] = useState(initial.medium || "English");
+      const [monthlyFee, setMonthlyFee] = useState(initial.monthlyFee != null ? initial.monthlyFee : "");
+      const [dayOfWeek, setDayOfWeek] = useState(initial.dayOfWeek || "Monday");
+      const [status, setStatus] = useState(initial.status || "ACTIVE");
+      const [busy, setBusy] = useState(false);
+
+      async function submit(e) {
+        e.preventDefault();
+        if (!name.trim()) { alert("Class name is required"); return; }
+        setBusy(true);
+        try {
+          await onSave({ name, subject, grade: Number(grade), medium,
+            monthlyFee: monthlyFee === "" ? null : Number(monthlyFee), dayOfWeek, status }, initial.id);
+        } catch (e) { alert(e.message); } finally { setBusy(false); }
+      }
+      return (
+        <div className="card class-form">
+          <h3 style={{ marginTop: 0 }}>{isEdit ? "Edit class" : "New class"}</h3>
+          <form onSubmit={submit} className="cf-grid">
+            <label>Class name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Mathematics - Grade 11" required /></label>
+            <label>Subject<input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Mathematics" /></label>
+            <label>Grade<select value={grade} onChange={e => setGrade(e.target.value)}>{[10, 11].map(g => <option key={g} value={g}>Grade {g}</option>)}</select></label>
+            <label>Medium<select value={medium} onChange={e => setMedium(e.target.value)}>{CLASS_MEDIUMS.map(m => <option key={m} value={m}>{m}</option>)}</select></label>
+            <label>Monthly fee (Rs.)<input type="number" min="0" value={monthlyFee} onChange={e => setMonthlyFee(e.target.value)} placeholder="e.g. 2500" /></label>
+            <label>Day of week<select value={dayOfWeek} onChange={e => setDayOfWeek(e.target.value)}>{CLASS_DAYS.map(d => <option key={d} value={d}>{d}</option>)}</select></label>
+            <label>Status<select value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+            <div className="cf-actions">
+              <button className="btn-inline" disabled={busy}>{busy ? "Saving…" : (isEdit ? "Save changes" : "Create class")}</button>
+              <button type="button" className="link-btn" onClick={onCancel}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    function ClassSessions({ classId }) {
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [newDate, setNewDate] = useState("");
+      const [editId, setEditId] = useState(null);
+      const [editDate, setEditDate] = useState("");
+
+      async function load() {
+        setLoading(true);
+        try { setItems(await api.classes.sessions(classId)); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, [classId]);
+
+      async function add(e) {
+        e.preventDefault();
+        if (!newDate) return;
+        try { await api.classes.addSession(classId, newDate); setNewDate(""); load(); } catch (e) { alert(e.message); }
+      }
+      async function saveEdit(id) {
+        if (!editDate) return;
+        try { await api.classes.editSession(classId, id, editDate); setEditId(null); load(); } catch (e) { alert(e.message); }
+      }
+      async function del(id) {
+        if (!confirm("Delete this class date?")) return;
+        try { await api.classes.deleteSession(classId, id); load(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Class Sessions</h3>
+          <form onSubmit={add} className="form-inline" style={{ marginBottom: 12 }}>
+            <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} />
+            <button className="btn-inline">Add date</button>
+          </form>
+          {loading ? <p className="muted">Loading…</p> :
+            items.length === 0 ? <p className="muted">No dates yet.</p> :
+            <ul className="date-list">
+              {items.map(s => (
+                <li key={s.id}>
+                  {editId === s.id ? (
+                    <React.Fragment>
+                      <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
+                      <span className="date-actions">
+                        <button className="link-btn" onClick={() => saveEdit(s.id)}>Save</button>
+                        <button className="link-btn" onClick={() => setEditId(null)}>Cancel</button>
+                      </span>
+                    </React.Fragment>
+                  ) : (
+                    <React.Fragment>
+                      <span>📅 {fmtDate(s.date)}</span>
+                      <span className="date-actions">
+                        <button className="link-btn" onClick={() => { setEditId(s.id); setEditDate(s.date); }}>Edit</button>
+                        <button className="link-btn danger" onClick={() => del(s.id)}>Delete</button>
+                      </span>
+                    </React.Fragment>
+                  )}
+                </li>
+              ))}
+            </ul>
+          }
+        </div>
+      );
+    }
+
+    function ClassFees({ classId }) {
+      const [rows, setRows] = useState([]);
+      const [avail, setAvail] = useState([]);
+      const [pick, setPick] = useState("");
+      const [loading, setLoading] = useState(true);
+
+      async function load() {
+        setLoading(true);
+        try {
+          const [fs, av] = await Promise.all([api.classes.fees(classId), api.classes.available(classId)]);
+          setRows(fs); setAvail(av); setPick("");
+        } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, [classId]);
+
+      async function change(studentId, status) {
+        setRows(rs => rs.map(r => r.studentId === studentId ? { ...r, paymentStatus: status } : r));
+        try { await api.classes.setFee(classId, studentId, status); } catch (e) { alert(e.message); load(); }
+      }
+      async function addStudent(e) {
+        e.preventDefault();
+        if (!pick) return;
+        try { await api.classes.enroll(classId, Number(pick)); load(); } catch (e) { alert(e.message); }
+      }
+      async function remove(studentId, name) {
+        if (!confirm("Remove " + name + " from this class?")) return;
+        try { await api.classes.unenroll(classId, studentId); load(); } catch (e) { alert(e.message); }
+      }
+
+      return (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Student Fees</h3>
+          <form onSubmit={addStudent} className="form-inline" style={{ marginBottom: 12 }}>
+            <select value={pick} onChange={e => setPick(e.target.value)}>
+              <option value="">{avail.length ? "Select a student to add…" : "No more students to add"}</option>
+              {avail.map(s => <option key={s.id} value={s.id}>{s.name}{s.grade ? " · Grade " + s.grade : ""}</option>)}
+            </select>
+            <button className="btn-inline" disabled={!pick}>+ Add student</button>
+          </form>
+          {loading ? <p className="muted">Loading…</p> :
+            rows.length === 0 ? <p className="muted">No students added yet — use the dropdown above to add students to this class.</p> :
+            <div className="table-wrap">
+              <table className="table fee-table">
+                <thead><tr><th>Student Name</th><th>Monthly Fee</th><th>Payment Status</th><th></th></tr></thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.studentId}>
+                      <td>{r.studentName}</td>
+                      <td>{money(r.monthlyFee)}</td>
+                      <td>
+                        <select className={"fee-badge fee-" + r.paymentStatus.toLowerCase()}
+                          value={r.paymentStatus} onChange={e => change(r.studentId, e.target.value)}>
+                          {FEE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                      </td>
+                      <td><button className="link-btn danger" onClick={() => remove(r.studentId, r.studentName)}>Remove</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
         </div>
       );
     }
