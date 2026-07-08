@@ -19,7 +19,7 @@ public class PingController {
     public Map<String, String> ping() {
         return Map.of(
             "status", "ok",
-            "app", "ICT Tuition LMS"
+            "app", "Stack ICT Academy"
         );
     }
 }

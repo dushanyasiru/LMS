@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Entry point for the ICT Tuition LMS.
+ * Entry point for Stack ICT Academy.
  * Run with:  mvn spring-boot:run
  * Then open: http://localhost:8080
  */
