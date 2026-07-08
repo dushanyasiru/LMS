@@ -34,9 +34,13 @@ RUN /opt/java/openjdk/bin/java -XX:ArchiveClassesAtExit=application.jsa \
       -Dspring.data.jpa.repositories.bootstrap-mode=lazy \
       -Dspring.context.exit=onRefresh -jar app.jar ; true
 
+# Entrypoint rewrites SPRING_DATASOURCE_URL to Supabase's transaction pooler
+# (6543) — the session pooler's 15-client cap caused EMAXCONNSESSION outages —
+# then boots with the CDS archive + fast-start flags. Absolute java path
+# because Vercel's runtime doesn't include the image's PATH; flags/dir/jar in
+# the script match the training run above so the archive loads.
+COPY docker-entrypoint.sh ./entrypoint.sh
+
 EXPOSE 80
 
-# Boot with the CDS archive + fast-start flags. Absolute java path because
-# Vercel's runtime doesn't include the image's PATH. Flags/dir/jar match the
-# training run above so the archive loads.
-CMD ["sh", "-c", "/opt/java/openjdk/bin/java -XX:SharedArchiveFile=application.jsa -XX:TieredStopAtLevel=1 -Dserver.port=${PORT:-80} -jar app.jar"]
+CMD ["sh", "/app/application/entrypoint.sh"]
