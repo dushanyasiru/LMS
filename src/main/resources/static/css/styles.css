@@ -463,6 +463,11 @@ input:focus, select:focus, textarea:focus {
   background-position: right 8px center;
 }
 .fee-badge:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
+/* Read-only status pill (student "My Fees" view) — reuses the fee-* colours */
+.fee-pill {
+  display: inline-block; padding: 5px 13px; border-radius: 999px;
+  font-size: 0.82rem; font-weight: 700;
+}
 .fee-paid { background: #dcfce7; color: #15803d; }
 .fee-partial { background: #fef9c3; color: #a16207; }
 .fee-pending { background: #fee2e2; color: #b91c1c; }

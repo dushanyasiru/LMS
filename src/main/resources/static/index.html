@@ -130,6 +130,7 @@
         sessionPayments: (id) => api.request("/api/classes/" + id + "/session-payments"),
         setSessionPayment: (id, sessionId, studentId, status) => api.request("/api/classes/" + id + "/session-payments", { method: "PUT", body: JSON.stringify({ sessionId, studentId, status }) }),
       },
+      myFees: () => api.request("/api/my-fees"),
     };
 
     // Older builds stored the token in localStorage (persisted across window
@@ -1175,7 +1176,7 @@
     // ============================================================
     function StudentHome({ user }) {
       const [tab, setTab] = useState("notes");
-      const tabs = [["notes", "Notes"], ["papers", "Papers"], ["assignments", "Assignments"]];
+      const tabs = [["notes", "Notes"], ["papers", "Papers"], ["assignments", "Assignments"], ["fees", "My Fees"]];
       return (
         <div>
           <div className="tabs">
@@ -1186,6 +1187,57 @@
           {tab === "notes" && <StudentNotes />}
           {tab === "papers" && <StudentPapers />}
           {tab === "assignments" && <StudentAssignments />}
+          {tab === "fees" && <StudentFees />}
+        </div>
+      );
+    }
+
+    /** Read-only day-wise fee view for the logged-in student. */
+    function StudentFees() {
+      const [classes, setClasses] = useState([]);
+      const [loading, setLoading] = useState(true);
+      useEffect(() => {
+        (async () => {
+          try { setClasses(await api.myFees()); } catch (e) { alert(e.message); } finally { setLoading(false); }
+        })();
+      }, []);
+
+      const FEE_LABELS = Object.fromEntries(FEE_OPTIONS);   // PAID -> "🟢 Paid" etc.
+
+      if (loading) return <p className="muted">Loading…</p>;
+      if (classes.length === 0) return <div className="card"><p className="muted" style={{ margin: 0 }}>You are not added to any class yet.</p></div>;
+      return (
+        <div>
+          {classes.map(c => {
+            const paid = c.days.filter(d => d.status === "PAID" || d.status === "WAIVED").length;
+            return (
+              <div className="card" key={c.classId}>
+                <div className="row-between">
+                  <h3 style={{ margin: 0 }}>{c.className}
+                    <span className="muted" style={{ fontWeight: "normal", fontSize: "0.8em" }}>
+                      {" "}· {[c.subject, c.dayOfWeek, money(c.monthlyFee) + "/mo"].filter(Boolean).join(" · ")}
+                    </span>
+                  </h3>
+                  {c.days.length > 0 && <span className="muted">{paid}/{c.days.length} settled</span>}
+                </div>
+                {c.days.length === 0 ? <p className="muted">No class dates yet.</p> :
+                  <div className="table-wrap">
+                    <table className="table fee-table">
+                      <thead><tr><th>Date</th><th>Payment Status</th></tr></thead>
+                      <tbody>
+                        {c.days.map((d, i) => (
+                          <tr key={i}>
+                            <td>{fmtDate(d.date)}</td>
+                            <td><span className={"fee-pill fee-" + d.status.toLowerCase()}>{FEE_LABELS[d.status] || d.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                }
+              </div>
+            );
+          })}
         </div>
       );
     }
