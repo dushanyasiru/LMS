@@ -24,17 +24,21 @@ import com.ict.lms.model.ClassSession;
 import com.ict.lms.model.ClassStatus;
 import com.ict.lms.model.PaymentStatus;
 import com.ict.lms.model.Role;
+import com.ict.lms.model.SessionPayment;
 import com.ict.lms.model.TuitionClass;
 import com.ict.lms.repo.AppUserRepository;
 import com.ict.lms.repo.ClassPaymentRepository;
 import com.ict.lms.repo.ClassSessionRepository;
+import com.ict.lms.repo.SessionPaymentRepository;
 import com.ict.lms.repo.TuitionClassRepository;
 import com.ict.lms.web.dto.ClassDto;
 import com.ict.lms.web.dto.ClassSessionDto;
 import com.ict.lms.web.dto.EnrollRequest;
 import com.ict.lms.web.dto.FeeStatusRequest;
 import com.ict.lms.web.dto.SaveClassRequest;
+import com.ict.lms.web.dto.SessionPaymentDto;
 import com.ict.lms.web.dto.SessionRequest;
+import com.ict.lms.web.dto.SetSessionPaymentRequest;
 import com.ict.lms.web.dto.StudentDto;
 import com.ict.lms.web.dto.StudentFeeDto;
 
@@ -47,13 +51,16 @@ public class ClassController {
     private final TuitionClassRepository classes;
     private final ClassSessionRepository sessions;
     private final ClassPaymentRepository payments;
+    private final SessionPaymentRepository sessionPayments;
     private final AppUserRepository users;
 
     public ClassController(TuitionClassRepository classes, ClassSessionRepository sessions,
-                           ClassPaymentRepository payments, AppUserRepository users) {
+                           ClassPaymentRepository payments, SessionPaymentRepository sessionPayments,
+                           AppUserRepository users) {
         this.classes = classes;
         this.sessions = sessions;
         this.payments = payments;
+        this.sessionPayments = sessionPayments;
         this.users = users;
     }
 
@@ -82,6 +89,7 @@ public class ClassController {
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         classes.findById(id).ifPresent(c -> {
+            sessionPayments.deleteAll(sessionPayments.findBySession_TuitionClass_Id(id));
             sessions.deleteAll(sessions.findByTuitionClassIdOrderBySessionDateAsc(id));
             payments.deleteAll(payments.findByTuitionClassId(id));
             classes.delete(c);
@@ -127,7 +135,10 @@ public class ClassController {
     public void deleteSession(@PathVariable Long id, @PathVariable Long sessionId) {
         sessions.findById(sessionId)
                 .filter(s -> s.getTuitionClass().getId().equals(id))
-                .ifPresent(sessions::delete);
+                .ifPresent(s -> {
+                    sessionPayments.deleteAll(sessionPayments.findBySessionId(sessionId));
+                    sessions.delete(s);
+                });
     }
 
     // ---------------- Student enrolment & fees ----------------
@@ -179,9 +190,10 @@ public class ClassController {
         return new StudentFeeDto(student.getId(), student.getFullName(), c.getMonthlyFee(), p.getStatus().name());
     }
 
-    /** Remove a student from the class. */
+    /** Remove a student from the class (and clear their day-wise statuses). */
     @DeleteMapping("/{id}/students/{studentId}")
     public void unenroll(@PathVariable Long id, @PathVariable Long studentId) {
+        sessionPayments.deleteAll(sessionPayments.findBySession_TuitionClass_IdAndStudentId(id, studentId));
         payments.findByTuitionClassIdAndStudentId(id, studentId).ifPresent(payments::delete);
     }
 
@@ -203,6 +215,40 @@ public class ClassController {
         p.setUpdatedAt(java.time.Instant.now());
         payments.save(p);
         return new StudentFeeDto(student.getId(), student.getFullName(), c.getMonthlyFee(), status.name());
+    }
+
+    // ---------------- Day-wise (per-session) fees ----------------
+
+    /** All day-wise payment statuses for the class (only the entries that have been set). */
+    @GetMapping("/{id}/session-payments")
+    public List<SessionPaymentDto> sessionPayments(@PathVariable Long id) {
+        return sessionPayments.findBySession_TuitionClass_Id(id).stream()
+                .map(sp -> new SessionPaymentDto(sp.getSession().getId(), sp.getStudent().getId(), sp.getStatus().name()))
+                .toList();
+    }
+
+    /** Set a student's payment status for one session (upsert). */
+    @PutMapping("/{id}/session-payments")
+    public SessionPaymentDto setSessionPayment(@PathVariable Long id, @RequestBody SetSessionPaymentRequest req) {
+        if (req.sessionId() == null || req.studentId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sessionId and studentId are required");
+        }
+        ClassSession session = sessions.findById(req.sessionId())
+                .filter(s -> s.getTuitionClass().getId().equals(id))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found in this class"));
+        AppUser student = users.findById(req.studentId())
+                .filter(u -> u.getRole() == Role.STUDENT)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+        PaymentStatus status = parseStatus(req.status());
+
+        SessionPayment sp = sessionPayments.findBySessionIdAndStudentId(req.sessionId(), req.studentId())
+                .orElseGet(SessionPayment::new);
+        sp.setSession(session);
+        sp.setStudent(student);
+        sp.setStatus(status);
+        sp.setUpdatedAt(Instant.now());
+        sessionPayments.save(sp);
+        return new SessionPaymentDto(session.getId(), student.getId(), status.name());
     }
 
     // ---------------- helpers ----------------

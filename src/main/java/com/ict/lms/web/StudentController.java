@@ -19,6 +19,7 @@ import com.ict.lms.model.Role;
 import com.ict.lms.model.Submission;
 import com.ict.lms.repo.AppUserRepository;
 import com.ict.lms.repo.ClassPaymentRepository;
+import com.ict.lms.repo.SessionPaymentRepository;
 import com.ict.lms.repo.SubmissionRepository;
 import com.ict.lms.service.FileStorageService;
 import com.ict.lms.web.dto.CreateStudentRequest;
@@ -35,14 +36,17 @@ public class StudentController {
     private final AppUserRepository users;
     private final SubmissionRepository submissions;
     private final ClassPaymentRepository payments;
+    private final SessionPaymentRepository sessionPayments;
     private final FileStorageService storage;
     private final PasswordEncoder encoder;
 
     public StudentController(AppUserRepository users, SubmissionRepository submissions,
-                            ClassPaymentRepository payments, FileStorageService storage, PasswordEncoder encoder) {
+                            ClassPaymentRepository payments, SessionPaymentRepository sessionPayments,
+                            FileStorageService storage, PasswordEncoder encoder) {
         this.users = users;
         this.submissions = submissions;
         this.payments = payments;
+        this.sessionPayments = sessionPayments;
         this.storage = storage;
         this.encoder = encoder;
     }
@@ -79,7 +83,8 @@ public class StudentController {
                 storage.delete(s.getFilePath());
                 submissions.delete(s);
             }
-            payments.deleteAll(payments.findByStudentId(id)); // remove class enrolments
+            sessionPayments.deleteAll(sessionPayments.findByStudentId(id)); // day-wise statuses
+            payments.deleteAll(payments.findByStudentId(id)); // class enrolments
             users.delete(u);
         });
     }

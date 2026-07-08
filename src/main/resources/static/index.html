@@ -127,6 +127,8 @@
         available: (id) => api.request("/api/classes/" + id + "/available"),
         enroll: (id, studentId) => api.request("/api/classes/" + id + "/students", { method: "POST", body: JSON.stringify({ studentId }) }),
         unenroll: (id, studentId) => api.request("/api/classes/" + id + "/students/" + studentId, { method: "DELETE" }),
+        sessionPayments: (id) => api.request("/api/classes/" + id + "/session-payments"),
+        setSessionPayment: (id, sessionId, studentId, status) => api.request("/api/classes/" + id + "/session-payments", { method: "PUT", body: JSON.stringify({ sessionId, studentId, status }) }),
       },
     };
 
@@ -941,7 +943,7 @@
               <h3 className="detail-title">{selected.name}{selected.grade ? " · Grade " + selected.grade : ""}</h3>
               <div className="detail-grid">
                 <ClassSessions classId={selected.id} />
-                <ClassFees classId={selected.id} />
+                <ClassFees classId={selected.id} monthlyFee={selected.monthlyFee} />
               </div>
             </div>
           )}
@@ -1074,8 +1076,10 @@
       );
     }
 
-    function ClassFees({ classId }) {
-      const [rows, setRows] = useState([]);
+    function ClassFees({ classId, monthlyFee }) {
+      const [students, setStudents] = useState([]);   // enrolled students
+      const [dates, setDates] = useState([]);          // class sessions
+      const [statuses, setStatuses] = useState({});    // "sessionId_studentId" -> status
       const [avail, setAvail] = useState([]);
       const [pick, setPick] = useState("");
       const [loading, setLoading] = useState(true);
@@ -1083,15 +1087,24 @@
       async function load() {
         setLoading(true);
         try {
-          const [fs, av] = await Promise.all([api.classes.fees(classId), api.classes.available(classId)]);
-          setRows(fs); setAvail(av); setPick("");
+          const [fs, ss, sp, av] = await Promise.all([
+            api.classes.fees(classId), api.classes.sessions(classId),
+            api.classes.sessionPayments(classId), api.classes.available(classId),
+          ]);
+          setStudents(fs); setDates(ss); setAvail(av); setPick("");
+          const map = {};
+          sp.forEach(p => { map[p.sessionId + "_" + p.studentId] = p.status; });
+          setStatuses(map);
         } catch (e) { alert(e.message); } finally { setLoading(false); }
       }
       useEffect(() => { load(); }, [classId]);
 
-      async function change(studentId, status) {
-        setRows(rs => rs.map(r => r.studentId === studentId ? { ...r, paymentStatus: status } : r));
-        try { await api.classes.setFee(classId, studentId, status); } catch (e) { alert(e.message); load(); }
+      const statusOf = (sid, stid) => statuses[sid + "_" + stid] || "PENDING";
+
+      async function change(sessionId, studentId, status) {
+        setStatuses(m => ({ ...m, [sessionId + "_" + studentId]: status }));
+        try { await api.classes.setSessionPayment(classId, sessionId, studentId, status); }
+        catch (e) { alert(e.message); load(); }
       }
       async function addStudent(e) {
         e.preventDefault();
@@ -1105,7 +1118,9 @@
 
       return (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Student Fees</h3>
+          <h3 style={{ marginTop: 0 }}>Student Fees
+            <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}> · {money(monthlyFee)}/mo · status per date</span>
+          </h3>
           <form onSubmit={addStudent} className="form-inline" style={{ marginBottom: 12 }}>
             <select value={pick} onChange={e => setPick(e.target.value)}>
               <option value="">{avail.length ? "Select a student to add…" : "No more students to add"}</option>
@@ -1114,22 +1129,33 @@
             <button className="btn-inline" disabled={!pick}>+ Add student</button>
           </form>
           {loading ? <p className="muted">Loading…</p> :
-            rows.length === 0 ? <p className="muted">No students added yet — use the dropdown above to add students to this class.</p> :
+            students.length === 0 ? <p className="muted">No students added yet — use the dropdown above to add students to this class.</p> :
+            dates.length === 0 ? <p className="muted">Add class dates on the left to record day-wise fees.</p> :
             <div className="table-wrap">
-              <table className="table fee-table">
-                <thead><tr><th>Student Name</th><th>Monthly Fee</th><th>Payment Status</th><th></th></tr></thead>
+              <table className="table fee-grid">
+                <thead>
+                  <tr>
+                    <th className="sticky-col">Student</th>
+                    {dates.map(d => <th key={d.id} className="date-col">{fmtDate(d.date)}</th>)}
+                    <th></th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {rows.map(r => (
-                    <tr key={r.studentId}>
-                      <td>{r.studentName}</td>
-                      <td>{money(r.monthlyFee)}</td>
-                      <td>
-                        <select className={"fee-badge fee-" + r.paymentStatus.toLowerCase()}
-                          value={r.paymentStatus} onChange={e => change(r.studentId, e.target.value)}>
-                          {FEE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                        </select>
-                      </td>
-                      <td><button className="link-btn danger" onClick={() => remove(r.studentId, r.studentName)}>Remove</button></td>
+                  {students.map(st => (
+                    <tr key={st.studentId}>
+                      <td className="sticky-col">{st.studentName}</td>
+                      {dates.map(d => {
+                        const cur = statusOf(d.id, st.studentId);
+                        return (
+                          <td key={d.id} className="date-col">
+                            <select className={"fee-badge fee-" + cur.toLowerCase()}
+                              value={cur} onChange={e => change(d.id, st.studentId, e.target.value)}>
+                              {FEE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </td>
+                        );
+                      })}
+                      <td><button className="link-btn danger" onClick={() => remove(st.studentId, st.studentName)}>Remove</button></td>
                     </tr>
                   ))}
                 </tbody>
