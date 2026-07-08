@@ -1082,6 +1082,7 @@
       const [statuses, setStatuses] = useState({});    // "sessionId_studentId" -> status
       const [avail, setAvail] = useState([]);
       const [pick, setPick] = useState("");
+      const [selected, setSelected] = useState(null);  // which student's date-list is shown
       const [loading, setLoading] = useState(true);
 
       async function load() {
@@ -1095,6 +1096,7 @@
           const map = {};
           sp.forEach(p => { map[p.sessionId + "_" + p.studentId] = p.status; });
           setStatuses(map);
+          setSelected(prev => (prev && fs.some(f => f.studentId === prev)) ? prev : (fs[0] ? fs[0].studentId : null));
         } catch (e) { alert(e.message); } finally { setLoading(false); }
       }
       useEffect(() => { load(); }, [classId]);
@@ -1116,6 +1118,8 @@
         try { await api.classes.unenroll(classId, studentId); load(); } catch (e) { alert(e.message); }
       }
 
+      const current = students.find(s => s.studentId === selected);
+
       return (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>Student Fees
@@ -1130,36 +1134,36 @@
           </form>
           {loading ? <p className="muted">Loading…</p> :
             students.length === 0 ? <p className="muted">No students added yet — use the dropdown above to add students to this class.</p> :
-            dates.length === 0 ? <p className="muted">Add class dates on the left to record day-wise fees.</p> :
-            <div className="table-wrap">
-              <table className="table fee-grid">
-                <thead>
-                  <tr>
-                    <th className="sticky-col">Student</th>
-                    {dates.map(d => <th key={d.id} className="date-col">{fmtDate(d.date)}</th>)}
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {students.map(st => (
-                    <tr key={st.studentId}>
-                      <td className="sticky-col">{st.studentName}</td>
+            <div>
+              <div className="row-between" style={{ marginBottom: 12 }}>
+                <select value={selected || ""} onChange={e => setSelected(Number(e.target.value))}>
+                  {students.map(s => <option key={s.studentId} value={s.studentId}>{s.studentName}</option>)}
+                </select>
+                {current && <button className="link-btn danger" onClick={() => remove(current.studentId, current.studentName)}>Remove from class</button>}
+              </div>
+              {dates.length === 0 ? <p className="muted">Add class dates on the left to record day-wise fees.</p> :
+                <div className="table-wrap">
+                  <table className="table fee-table">
+                    <thead><tr><th>Date</th><th>Payment Status</th></tr></thead>
+                    <tbody>
                       {dates.map(d => {
-                        const cur = statusOf(d.id, st.studentId);
+                        const cur = statusOf(d.id, selected);
                         return (
-                          <td key={d.id} className="date-col">
-                            <select className={"fee-badge fee-" + cur.toLowerCase()}
-                              value={cur} onChange={e => change(d.id, st.studentId, e.target.value)}>
-                              {FEE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                            </select>
-                          </td>
+                          <tr key={d.id}>
+                            <td>{fmtDate(d.date)}</td>
+                            <td>
+                              <select className={"fee-badge fee-" + cur.toLowerCase()}
+                                value={cur} onChange={e => change(d.id, selected, e.target.value)}>
+                                {FEE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                              </select>
+                            </td>
+                          </tr>
                         );
                       })}
-                      <td><button className="link-btn danger" onClick={() => remove(st.studentId, st.studentName)}>Remove</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </tbody>
+                  </table>
+                </div>
+              }
             </div>
           }
         </div>

@@ -428,16 +428,12 @@ input:focus, select:focus, textarea:focus {
 
 .class-detail { margin-top: 22px; }
 .detail-title { margin: 0 0 12px; padding-bottom: 10px; border-bottom: 2px solid var(--brand); display: inline-block; }
-.detail-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
-
-/* Day-wise fee grid: students as rows, class dates as columns */
-.fee-grid th, .fee-grid td { white-space: nowrap; }
-.fee-grid .date-col { text-align: center; min-width: 118px; }
-.fee-grid .sticky-col {
-  position: sticky; left: 0; background: var(--card); z-index: 1;
-  border-right: 1px solid var(--border); font-weight: 600;
-}
-.fee-grid .fee-badge { min-width: 104px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 18px; align-items: start; }
+/* min-width:0 lets a grid item shrink below its content's natural size, so a
+   wide child (e.g. a table) scrolls inside .table-wrap instead of forcing the
+   grid track — and the whole page — wider. */
+.detail-grid > * { min-width: 0; }
+@media (max-width: 820px) { .detail-grid { grid-template-columns: 1fr; } }
 
 .class-form .cf-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 16px;
