@@ -311,11 +311,33 @@ input:focus, select:focus, textarea:focus {
 .dash[data-theme="dark"].role-teacher { --brand: #818cf8; --brand-dark: #6366f1; }
 .dash[data-theme="dark"].role-student { --brand: #2dd4bf; --brand-dark: #14b8a6; }
 
-/* Simple, modern backgrounds: a soft accent glow fading into a clean neutral */
-.dash.role-teacher:not([data-theme="dark"]) { background: radial-gradient(1100px 420px at 50% -160px, #e7ebff 0%, transparent 68%), #f7f8fc; }
-.dash.role-student:not([data-theme="dark"]) { background: radial-gradient(1100px 420px at 50% -160px, #d9f6ef 0%, transparent 68%), #f6faf9; }
-.dash[data-theme="dark"].role-teacher { background: radial-gradient(1000px 400px at 50% -160px, rgba(129,140,248,0.16) 0%, transparent 70%), #0f172a; }
-.dash[data-theme="dark"].role-student { background: radial-gradient(1000px 400px at 50% -160px, rgba(45,212,191,0.13) 0%, transparent 70%), #0f172a; }
+/* Simple, modern backgrounds: several soft accent glows (top + both lower
+   corners) so wide screens don't show a big flat gutter beside the content
+   column, fading into a clean neutral base. */
+.dash.role-teacher:not([data-theme="dark"]) {
+  background: radial-gradient(1100px 420px at 50% -160px, #e7ebff 0%, transparent 68%),
+              radial-gradient(700px 500px at -5% 100%, #eef0ff 0%, transparent 60%),
+              radial-gradient(700px 500px at 105% 90%, #f3ebff 0%, transparent 60%),
+              #f7f8fc;
+}
+.dash.role-student:not([data-theme="dark"]) {
+  background: radial-gradient(1100px 420px at 50% -160px, #d9f6ef 0%, transparent 68%),
+              radial-gradient(700px 500px at -5% 100%, #e3faf3 0%, transparent 60%),
+              radial-gradient(700px 500px at 105% 90%, #e6f9f0 0%, transparent 60%),
+              #f6faf9;
+}
+.dash[data-theme="dark"].role-teacher {
+  background: radial-gradient(1000px 400px at 50% -160px, rgba(129,140,248,0.16) 0%, transparent 70%),
+              radial-gradient(650px 480px at -5% 100%, rgba(99,102,241,0.10) 0%, transparent 62%),
+              radial-gradient(650px 480px at 105% 90%, rgba(139,92,246,0.09) 0%, transparent 62%),
+              #0f172a;
+}
+.dash[data-theme="dark"].role-student {
+  background: radial-gradient(1000px 400px at 50% -160px, rgba(45,212,191,0.13) 0%, transparent 70%),
+              radial-gradient(650px 480px at -5% 100%, rgba(20,184,166,0.09) 0%, transparent 62%),
+              radial-gradient(650px 480px at 105% 90%, rgba(16,185,129,0.08) 0%, transparent 62%),
+              #0f172a;
+}
 
 /* Theme toggle button */
 .icon-btn {
@@ -373,27 +395,51 @@ input:focus, select:focus, textarea:focus {
 .dash > .container { position: relative; z-index: 1; }
 
 .dash-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.dash-bg .blob { opacity: 0.4; }
+
+/* Subtle dot-grid texture so the space between/beside cards (and the wide
+   gutters either side of the 960px content column) never reads as totally
+   flat/empty. Pure CSS, no images; dark theme gets its own (lighter, dimmer)
+   dot colour via the override below. */
+.dash-bg { background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1.4px, transparent 1.8px); background-size: 26px 26px; }
+.dash[data-theme="dark"] .dash-bg { background-image: radial-gradient(rgba(226, 232, 240, 0.09) 1.4px, transparent 1.8px); }
+
+/* NOTE: without position:absolute + border-radius + blur, a <span> is inline
+   and its width/height/top/left are ignored entirely — these blobs were
+   invisible until this rule existed. */
+.dash-bg .blob {
+  position: absolute; border-radius: 50%; filter: blur(80px);
+  opacity: 0.55; will-change: transform;
+}
 .dash-bg .db1 { width: 480px; height: 480px; top: -120px; left: -80px; animation: floatA 20s ease-in-out infinite; }
-.dash-bg .db2 { width: 420px; height: 420px; bottom: -140px; right: -90px; animation: floatB 25s ease-in-out infinite; }
-.dash-bg .db3 { width: 360px; height: 360px; top: 42%; left: 60%; animation: floatC 30s ease-in-out infinite; }
+.dash-bg .db2 { width: 420px; height: 420px; bottom: -140px; right: -90px; animation: floatB 25s ease-in-out infinite -6s; }
+.dash-bg .db3 { width: 360px; height: 360px; top: 42%; left: 60%; animation: floatC 30s ease-in-out infinite -12s; }
+.dash-bg .db4 { width: 300px; height: 300px; top: -60px; right: 8%; animation: floatC 24s ease-in-out infinite -3s; }
+.dash-bg .db5 { width: 340px; height: 340px; bottom: -110px; left: 6%; animation: floatA 27s ease-in-out infinite -9s; }
 
 /* teacher (indigo) — light */
 .dash.role-teacher:not([data-theme="dark"]) .db1 { background: #c7d2fe; }
 .dash.role-teacher:not([data-theme="dark"]) .db2 { background: #ddd6fe; }
 .dash.role-teacher:not([data-theme="dark"]) .db3 { background: #bfdbfe; }
+.dash.role-teacher:not([data-theme="dark"]) .db4 { background: #a5b4fc; }
+.dash.role-teacher:not([data-theme="dark"]) .db5 { background: #c4b5fd; }
 /* student (teal) — light */
 .dash.role-student:not([data-theme="dark"]) .db1 { background: #99f6e4; }
 .dash.role-student:not([data-theme="dark"]) .db2 { background: #a7f3d0; }
 .dash.role-student:not([data-theme="dark"]) .db3 { background: #bae6fd; }
+.dash.role-student:not([data-theme="dark"]) .db4 { background: #5eead4; }
+.dash.role-student:not([data-theme="dark"]) .db5 { background: #6ee7b7; }
 /* dark — subtler */
-.dash[data-theme="dark"] .dash-bg .blob { opacity: 0.26; }
+.dash[data-theme="dark"] .dash-bg .blob { opacity: 0.4; }
 .dash[data-theme="dark"].role-teacher .db1 { background: #6366f1; }
 .dash[data-theme="dark"].role-teacher .db2 { background: #8b5cf6; }
 .dash[data-theme="dark"].role-teacher .db3 { background: #3b82f6; }
+.dash[data-theme="dark"].role-teacher .db4 { background: #818cf8; }
+.dash[data-theme="dark"].role-teacher .db5 { background: #a78bfa; }
 .dash[data-theme="dark"].role-student .db1 { background: #14b8a6; }
 .dash[data-theme="dark"].role-student .db2 { background: #10b981; }
 .dash[data-theme="dark"].role-student .db3 { background: #0ea5e9; }
+.dash[data-theme="dark"].role-student .db4 { background: #2dd4bf; }
+.dash[data-theme="dark"].role-student .db5 { background: #34d399; }
 
 @media (prefers-reduced-motion: reduce) {
   .dash-bg .blob { animation: none; }
