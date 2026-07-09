@@ -7,13 +7,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 /** One dated session (class date) of a tuition class. */
 @Entity
-@Table(name = "class_session")
+@Table(name = "class_session", indexes = @Index(name = "idx_class_session_class", columnList = "class_id"))
 public class ClassSession {
 
     @Id

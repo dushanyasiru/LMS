@@ -7,11 +7,17 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 /** A student's answer file for an assignment, plus its mark & feedback. */
 @Entity
+@Table(name = "submission", indexes = {
+        @Index(name = "idx_submission_student", columnList = "student_id"),
+        @Index(name = "idx_submission_assignment", columnList = "assignment_id")
+})
 public class Submission {
 
     @Id

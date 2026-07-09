@@ -8,9 +8,12 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
 /** A task students submit answers to (optionally with a question file). */
 @Entity
+@Table(name = "assignment", indexes = @Index(name = "idx_assignment_grade", columnList = "grade"))
 public class Assignment {
 
     @Id

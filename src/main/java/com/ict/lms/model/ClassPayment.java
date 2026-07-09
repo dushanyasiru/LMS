@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -17,7 +18,8 @@ import jakarta.persistence.UniqueConstraint;
 /** A student's fee/payment status for one class. */
 @Entity
 @Table(name = "class_payment",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"class_id", "student_id"}))
+       uniqueConstraints = @UniqueConstraint(columnNames = {"class_id", "student_id"}),
+       indexes = @Index(name = "idx_class_payment_student", columnList = "student_id"))
 public class ClassPayment {
 
     @Id

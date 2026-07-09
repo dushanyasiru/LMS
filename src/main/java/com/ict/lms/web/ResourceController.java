@@ -1,6 +1,5 @@
 package com.ict.lms.web;
 
-import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.http.HttpHeaders;
@@ -49,21 +48,27 @@ public class ResourceController {
     public List<ResourceDto> list(@RequestParam(required = false) Integer grade,
                                   @RequestParam(required = false) String category,
                                   @AuthenticationPrincipal AuthUser user) {
-        boolean student = user.role() == Role.STUDENT;
-        Integer studentGrade = user.grade();
         Category cat = (category == null || category.isBlank())
                 ? null : Category.valueOf(category.trim().toUpperCase());
 
-        return resources.findAll().stream()
-                // Students see their grade and every grade below it (Grade 11 -> 10 & 11).
-                // Teachers see the grade they picked (or all grades when none is chosen).
-                .filter(r -> student
-                        ? (studentGrade != null && r.getGrade() != null && r.getGrade() <= studentGrade)
-                        : (grade == null || grade.equals(r.getGrade())))
-                .filter(r -> cat == null || r.getCategory() == cat)
-                .sorted(Comparator.comparing(Resource::getCreatedAt).reversed())
-                .map(this::toDto)
-                .toList();
+        List<Resource> rows;
+        if (user.role() == Role.STUDENT) {
+            // Students see their grade and every grade below it (Grade 11 -> 10 & 11).
+            Integer g = user.grade();
+            if (g == null) rows = List.of();
+            else rows = (cat == null)
+                    ? resources.findByGradeLessThanEqualOrderByCreatedAtDesc(g)
+                    : resources.findByGradeLessThanEqualAndCategoryOrderByCreatedAtDesc(g, cat);
+        } else {
+            // Teachers see the grade they picked, or all grades when none is chosen.
+            if (grade == null) rows = (cat == null)
+                    ? resources.findAllByOrderByCreatedAtDesc()
+                    : resources.findByCategoryOrderByCreatedAtDesc(cat);
+            else rows = (cat == null)
+                    ? resources.findByGradeOrderByCreatedAtDesc(grade)
+                    : resources.findByGradeAndCategoryOrderByCreatedAtDesc(grade, cat);
+        }
+        return rows.stream().map(this::toDto).toList();
     }
 
     @PostMapping

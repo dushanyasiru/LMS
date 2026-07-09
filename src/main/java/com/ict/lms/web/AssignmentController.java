@@ -1,7 +1,6 @@
 package com.ict.lms.web;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.http.HttpHeaders;
@@ -48,17 +47,17 @@ public class AssignmentController {
     @GetMapping
     public List<AssignmentDto> list(@RequestParam(required = false) Integer grade,
                                     @AuthenticationPrincipal AuthUser user) {
-        boolean student = user.role() == Role.STUDENT;
-        Integer studentGrade = user.grade();
-        return assignments.findAll().stream()
-                // Students see their grade and every grade below it (Grade 11 -> 10 & 11);
-                // teachers see the grade they picked (or all grades when none is chosen).
-                .filter(a -> student
-                        ? (studentGrade != null && a.getGrade() != null && a.getGrade() <= studentGrade)
-                        : (grade == null || grade.equals(a.getGrade())))
-                .sorted(Comparator.comparing(Assignment::getCreatedAt).reversed())
-                .map(this::toDto)
-                .toList();
+        List<Assignment> rows;
+        if (user.role() == Role.STUDENT) {
+            // Students see their grade and every grade below it (Grade 11 -> 10 & 11).
+            Integer g = user.grade();
+            rows = (g == null) ? List.of() : assignments.findByGradeLessThanEqualOrderByCreatedAtDesc(g);
+        } else {
+            // Teachers see the grade they picked, or all grades when none is chosen.
+            rows = (grade == null) ? assignments.findAllByOrderByCreatedAtDesc()
+                                   : assignments.findByGradeOrderByCreatedAtDesc(grade);
+        }
+        return rows.stream().map(this::toDto).toList();
     }
 
     @PostMapping

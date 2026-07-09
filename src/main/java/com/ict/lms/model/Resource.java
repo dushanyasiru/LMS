@@ -9,11 +9,18 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 /** An uploaded file: a note (linked to a lesson) or a paper. */
 @Entity
+@Table(name = "resource", indexes = {
+        @Index(name = "idx_resource_grade", columnList = "grade"),
+        @Index(name = "idx_resource_category", columnList = "category"),
+        @Index(name = "idx_resource_lesson", columnList = "lesson_id")
+})
 public class Resource {
 
     @Id
