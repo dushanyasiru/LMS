@@ -21,6 +21,8 @@
     // WhatsApp uses the international format: 0703974113 -> +94 703974113
     const WHATSAPP = "https://wa.me/94703974113";
     const TOKEN_KEY = "lms_token";
+    // Separate exam site — its own login, so it opens in a new tab.
+    const EXAMS_URL = "https://stack-exams-ten.vercel.app/login";
 
     // ============================================================
     //  API helper
@@ -314,6 +316,10 @@
             <div className="topbar-right">
               <span className="who">{user.name} · {user.role}{user.grade ? " · Grade " + user.grade : ""}</span>
               {user.role === "TEACHER" && <NotificationBell />}
+              <a className="exams-btn" href={EXAMS_URL} target="_blank" rel="noopener noreferrer"
+                title="Open Stack Exams — a separate site with its own login">
+                🎯 Exams
+              </a>
               <button className="icon-btn" title="Switch light / dark theme"
                 onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}>
                 {theme === "dark" ? "☀️ Light" : "🌙 Dark"}

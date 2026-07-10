@@ -339,12 +339,35 @@ input:focus, select:focus, textarea:focus {
               #0f172a;
 }
 
-/* Theme toggle button */
+/* Theme toggle button (also used for the "Exams" link — an <a> styled the same way) */
 .icon-btn {
   background: none; border: 1px solid var(--border); color: var(--text);
   border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 4px;
 }
 .icon-btn:hover { background: var(--bg); }
+
+/* "Exams" top-bar button — deliberately a different accent (warm amber, not
+   the app's own indigo/teal brand colours) so it reads as a distinct
+   destination (a separate site with its own login), and a solid gradient +
+   shadow + gentle pulse so it stands out rather than blending in like the
+   plain outlined icon-btn siblings. */
+.exams-btn {
+  background: linear-gradient(135deg, #f59e0b, #ea580c);
+  color: #fff; border: none; text-decoration: none;
+  padding: 8px 18px; border-radius: 999px; font-weight: 700; font-size: 0.85rem;
+  display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);
+  animation: examPulse 2.6s ease-in-out infinite;
+  transition: transform .12s ease, filter .12s ease;
+}
+.exams-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.exams-btn:active { transform: translateY(0); }
+@keyframes examPulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4), 0 0 0 0 rgba(245, 158, 11, 0.45); }
+  50%      { box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4), 0 0 0 7px rgba(245, 158, 11, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .exams-btn { animation: none; } }
 
 /* Teacher notification centre (bell + dropdown) */
 .notif { position: relative; }
