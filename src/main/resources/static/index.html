@@ -1212,10 +1212,20 @@
 
       const FEE_LABELS = Object.fromEntries(FEE_OPTIONS);   // PAID -> "🟢 Paid" etc.
 
+      // Days still marked PENDING across every class the student is in.
+      const pendingCount = classes.reduce(
+        (n, c) => n + c.days.filter(d => d.status === "PENDING").length, 0);
+
       if (loading) return <p className="muted">Loading…</p>;
       if (classes.length === 0) return <div className="card"><p className="muted" style={{ margin: 0 }}>You are not added to any class yet.</p></div>;
       return (
         <div>
+          {pendingCount > 0 && (
+            <div className="fee-alert">
+              <span>🔴</span>
+              <span>You have <b>{pendingCount}</b> pending payment {pendingCount === 1 ? "day" : "days"}.</span>
+            </div>
+          )}
           {classes.map(c => {
             const paid = c.days.filter(d => d.status === "PAID" || d.status === "WAIVED").length;
             return (
