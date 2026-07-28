@@ -1,6 +1,7 @@
 package com.ict.lms.web;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -223,7 +224,8 @@ public class ClassController {
     @GetMapping("/{id}/session-payments")
     public List<SessionPaymentDto> sessionPayments(@PathVariable Long id) {
         return sessionPayments.findBySession_TuitionClass_Id(id).stream()
-                .map(sp -> new SessionPaymentDto(sp.getSession().getId(), sp.getStudent().getId(), sp.getStatus().name()))
+                .map(sp -> new SessionPaymentDto(sp.getSession().getId(), sp.getStudent().getId(),
+                        sp.getStatus().name(), sp.getAmount(), sp.getPaidOn()))
                 .toList();
     }
 
@@ -247,8 +249,18 @@ public class ClassController {
         sp.setStudent(student);
         sp.setStatus(status);
         sp.setUpdatedAt(Instant.now());
+        // amount + received-date only apply to a PAID day; clear them otherwise
+        if (status == PaymentStatus.PAID) {
+            sp.setAmount(req.amount());
+            sp.setPaidOn((req.paidOn() != null && !req.paidOn().isBlank())
+                    ? LocalDate.parse(req.paidOn()) : LocalDate.now());
+        } else {
+            sp.setAmount(null);
+            sp.setPaidOn(null);
+        }
         sessionPayments.save(sp);
-        return new SessionPaymentDto(session.getId(), student.getId(), status.name());
+        return new SessionPaymentDto(session.getId(), student.getId(), status.name(),
+                sp.getAmount(), sp.getPaidOn());
     }
 
     // ---------------- helpers ----------------

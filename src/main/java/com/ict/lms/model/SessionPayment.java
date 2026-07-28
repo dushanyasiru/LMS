@@ -1,6 +1,7 @@
 package com.ict.lms.model;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,6 +42,12 @@ public class SessionPayment {
     @Column(nullable = false)
     private Instant updatedAt = Instant.now();
 
+    /** Amount received for this day (teacher view only). Null unless PAID. */
+    private Double amount;
+
+    /** Date the teacher actually received the payment. Null unless PAID. */
+    private LocalDate paidOn;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -55,4 +62,10 @@ public class SessionPayment {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public Double getAmount() { return amount; }
+    public void setAmount(Double amount) { this.amount = amount; }
+
+    public LocalDate getPaidOn() { return paidOn; }
+    public void setPaidOn(LocalDate paidOn) { this.paidOn = paidOn; }
 }

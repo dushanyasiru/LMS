@@ -130,7 +130,7 @@
         enroll: (id, studentId) => api.request("/api/classes/" + id + "/students", { method: "POST", body: JSON.stringify({ studentId }) }),
         unenroll: (id, studentId) => api.request("/api/classes/" + id + "/students/" + studentId, { method: "DELETE" }),
         sessionPayments: (id) => api.request("/api/classes/" + id + "/session-payments"),
-        setSessionPayment: (id, sessionId, studentId, status) => api.request("/api/classes/" + id + "/session-payments", { method: "PUT", body: JSON.stringify({ sessionId, studentId, status }) }),
+        setSessionPayment: (id, sessionId, studentId, status, amount, paidOn) => api.request("/api/classes/" + id + "/session-payments", { method: "PUT", body: JSON.stringify({ sessionId, studentId, status, amount, paidOn }) }),
       },
       myFees: () => api.request("/api/my-fees"),
     };
@@ -1088,11 +1088,15 @@
     function ClassFees({ classId, monthlyFee }) {
       const [students, setStudents] = useState([]);   // enrolled students
       const [dates, setDates] = useState([]);          // class sessions
-      const [statuses, setStatuses] = useState({});    // "sessionId_studentId" -> status
+      const [entries, setEntries] = useState({});      // "sessionId_studentId" -> {status, amount, paidOn}
       const [avail, setAvail] = useState([]);
       const [pick, setPick] = useState("");
       const [selected, setSelected] = useState(null);  // which student's date-list is shown
       const [loading, setLoading] = useState(true);
+
+      const todayISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+      const keyOf = (sid, stid) => sid + "_" + stid;
+      const entryOf = (sid, stid) => entries[keyOf(sid, stid)] || { status: "PENDING", amount: null, paidOn: null };
 
       async function load() {
         setLoading(true);
@@ -1103,19 +1107,26 @@
           ]);
           setStudents(fs); setDates(ss); setAvail(av); setPick("");
           const map = {};
-          sp.forEach(p => { map[p.sessionId + "_" + p.studentId] = p.status; });
-          setStatuses(map);
+          sp.forEach(p => { map[keyOf(p.sessionId, p.studentId)] = { status: p.status, amount: p.amount, paidOn: p.paidOn }; });
+          setEntries(map);
           setSelected(prev => (prev && fs.some(f => f.studentId === prev)) ? prev : (fs[0] ? fs[0].studentId : null));
         } catch (e) { alert(e.message); } finally { setLoading(false); }
       }
       useEffect(() => { load(); }, [classId]);
 
-      const statusOf = (sid, stid) => statuses[sid + "_" + stid] || "PENDING";
-
-      async function change(sessionId, studentId, status) {
-        setStatuses(m => ({ ...m, [sessionId + "_" + studentId]: status }));
-        try { await api.classes.setSessionPayment(classId, sessionId, studentId, status); }
+      // Persist an entry (optimistic; reload on error).
+      async function save(sessionId, studentId, entry) {
+        setEntries(m => ({ ...m, [keyOf(sessionId, studentId)]: entry }));
+        try { await api.classes.setSessionPayment(classId, sessionId, studentId, entry.status, entry.amount, entry.paidOn); }
         catch (e) { alert(e.message); load(); }
+      }
+      // Changing the status: marking PAID pre-fills the monthly fee + today's date.
+      function changeStatus(sessionId, studentId, status) {
+        const prev = entryOf(sessionId, studentId);
+        const entry = (status === "PAID")
+          ? { status, amount: prev.amount != null ? prev.amount : (monthlyFee ?? null), paidOn: prev.paidOn || todayISO() }
+          : { status, amount: null, paidOn: null };
+        save(sessionId, studentId, entry);
       }
       async function addStudent(e) {
         e.preventDefault();
@@ -1128,6 +1139,13 @@
       }
 
       const current = students.find(s => s.studentId === selected);
+
+      // Payment log for the selected student — most recently received first.
+      const history = dates
+        .map(d => ({ date: d.date, ...entryOf(d.id, selected) }))
+        .filter(x => x.status === "PAID" && x.paidOn)
+        .sort((a, b) => (a.paidOn < b.paidOn ? 1 : -1));
+      const totalReceived = history.reduce((n, h) => n + (h.amount || 0), 0);
 
       return (
         <div className="card">
@@ -1153,19 +1171,30 @@
               {dates.length === 0 ? <p className="muted">Add class dates on the left to record day-wise fees.</p> :
                 <div className="table-wrap">
                   <table className="table fee-table">
-                    <thead><tr><th>Date</th><th>Payment Status</th></tr></thead>
+                    <thead><tr><th>Date</th><th>Payment Status</th><th>Amount</th><th>Received on</th></tr></thead>
                     <tbody>
                       {dates.map(d => {
-                        const cur = statusOf(d.id, selected);
+                        const e = entryOf(d.id, selected);
+                        const paid = e.status === "PAID";
                         return (
                           <tr key={d.id}>
                             <td>{fmtDate(d.date)}</td>
                             <td>
-                              <select className={"fee-badge fee-" + cur.toLowerCase()}
-                                value={cur} onChange={e => change(d.id, selected, e.target.value)}>
+                              <select className={"fee-badge fee-" + e.status.toLowerCase()}
+                                value={e.status} onChange={ev => changeStatus(d.id, selected, ev.target.value)}>
                                 {FEE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                               </select>
                             </td>
+                            <td>{paid
+                              ? <input type="number" className="pay-amt" min="0" placeholder={monthlyFee || "0"}
+                                  value={e.amount ?? ""}
+                                  onChange={ev => setEntries(m => ({ ...m, [keyOf(d.id, selected)]: { ...e, amount: ev.target.value === "" ? null : Number(ev.target.value) } }))}
+                                  onBlur={ev => save(d.id, selected, { status: "PAID", amount: ev.target.value === "" ? null : Number(ev.target.value), paidOn: e.paidOn })} />
+                              : <span className="muted">—</span>}</td>
+                            <td>{paid
+                              ? <input type="date" className="pay-date" value={e.paidOn || ""}
+                                  onChange={ev => save(d.id, selected, { status: "PAID", amount: e.amount, paidOn: ev.target.value || null })} />
+                              : <span className="muted">—</span>}</td>
                           </tr>
                         );
                       })}
@@ -1173,6 +1202,22 @@
                   </table>
                 </div>
               }
+              {history.length > 0 && (
+                <div className="pay-history">
+                  <div className="row-between">
+                    <h4 style={{ margin: "0 0 6px" }}>Payment history — {current && current.studentName}</h4>
+                    <span className="muted">Total received: {money(totalReceived)}</span>
+                  </div>
+                  <ul className="file-list" style={{ margin: 0 }}>
+                    {history.map((h, i) => (
+                      <li key={i}>
+                        <span>💰 Received <b>{fmtDate(h.paidOn)}</b> <span className="muted">· {money(h.amount)}</span></span>
+                        <span className="muted">for class on {fmtDate(h.date)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           }
         </div>
