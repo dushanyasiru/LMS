@@ -1229,9 +1229,39 @@
     // ============================================================
     function StudentHome({ user }) {
       const [tab, setTab] = useState("notes");
+      const [pendingDays, setPendingDays] = useState(0);
+      const [showPay, setShowPay] = useState(false);
       const tabs = [["notes", "Notes"], ["papers", "Papers"], ["assignments", "Assignments"], ["fees", "My Fees"]];
+
+      // On login, check for pending fee days and pop a reminder.
+      useEffect(() => {
+        (async () => {
+          try {
+            const cls = await api.myFees();
+            const pending = cls.reduce((n, c) => n + c.days.filter(d => d.status === "PENDING").length, 0);
+            // Only nag once it piles up: 4+ pending days.
+            if (pending >= 4) { setPendingDays(pending); setShowPay(true); }
+          } catch (e) { /* reminder is best-effort */ }
+        })();
+      }, []);
+
       return (
         <div>
+          {showPay && (
+            <div className="modal-overlay" onClick={() => setShowPay(false)}>
+              <div className="modal-card" onClick={e => e.stopPropagation()}>
+                <div className="modal-icon">🔴</div>
+                <h3 style={{ margin: "0 0 6px" }}>Payment reminder</h3>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  You have <b>{pendingDays}</b> pending payment {pendingDays === 1 ? "day" : "days"}.
+                </p>
+                <div className="modal-actions">
+                  <button className="link-btn" onClick={() => setShowPay(false)}>Dismiss</button>
+                  <button className="btn-inline" onClick={() => { setShowPay(false); setTab("fees"); }}>View my fees</button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="tabs">
             {tabs.map(([k, l]) => (
               <button key={k} className={"tab" + (tab === k ? " active" : "")} onClick={() => setTab(k)}>{l}</button>

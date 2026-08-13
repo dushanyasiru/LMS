@@ -562,3 +562,19 @@ input:focus, select:focus, textarea:focus {
 .pay-date { width: 155px; padding: 6px 8px; }
 .pay-history { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 10px; }
 .pay-history h4 { color: var(--text); }
+
+/* Login popup (e.g. pending-fee reminder) */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000; padding: 20px;
+  background: rgba(15, 23, 42, 0.55); display: grid; place-items: center;
+}
+.modal-card {
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  padding: 26px; width: 100%; max-width: 380px; text-align: center;
+  animation: modalpop 0.18s ease-out;
+}
+.modal-icon { font-size: 2.2rem; line-height: 1; }
+.modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
+@keyframes modalpop { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
