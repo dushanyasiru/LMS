@@ -96,6 +96,7 @@
         list: () => api.request("/api/students"),
         create: (data) => api.request("/api/students", { method: "POST", body: JSON.stringify(data) }),
         remove: (id) => api.request("/api/students/" + id, { method: "DELETE" }),
+        fees: (id) => api.request("/api/students/" + id + "/fees"),
       },
       teachers: {
         list: () => api.request("/api/teachers"),
@@ -435,6 +436,7 @@
         ["papers", "Papers"],
         ["assignments", "Assignments"],
         ["classes", "Classes & Fees"],
+        ["dues", "Dues"],
         ["students", "Students"],
         ["teachers", "Teachers"],
       ];
@@ -449,8 +451,82 @@
           {tab === "papers" && <PapersPanel />}
           {tab === "assignments" && <AssignmentsPanel />}
           {tab === "classes" && <ClassesPanel />}
+          {tab === "dues" && <DuesPanel />}
           {tab === "students" && <StudentsPanel />}
           {tab === "teachers" && <TeachersPanel me={user} />}
+        </div>
+      );
+    }
+
+    /** Teacher: pick a student → see their pending days + pending total, class by class. */
+    function DuesPanel() {
+      const [students, setStudents] = useState([]);
+      const [sel, setSel] = useState("");
+      const [classes, setClasses] = useState([]);
+      const [loading, setLoading] = useState(false);
+
+      useEffect(() => {
+        (async () => { try { setStudents(await api.students.list()); } catch (e) { alert(e.message); } })();
+      }, []);
+
+      async function pick(id) {
+        setSel(id);
+        if (!id) { setClasses([]); return; }
+        setLoading(true);
+        try { setClasses(await api.students.fees(Number(id))); }
+        catch (e) { alert(e.message); setClasses([]); }
+        finally { setLoading(false); }
+      }
+
+      // Per class: pending days + total (pending days × class fee).
+      const perClass = classes.map(c => {
+        const pendingDays = c.days.filter(d => d.status === "PENDING");
+        const fee = c.monthlyFee || 0;
+        return { ...c, pendingDays, pendingCount: pendingDays.length, pendingTotal: pendingDays.length * fee };
+      });
+      const grandDays = perClass.reduce((n, c) => n + c.pendingCount, 0);
+      const grandTotal = perClass.reduce((n, c) => n + c.pendingTotal, 0);
+      const chosen = students.find(s => String(s.id) === String(sel));
+
+      return (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Student Dues <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}> · pending fees, class by class</span></h3>
+          <select value={sel} onChange={e => pick(e.target.value)} style={{ maxWidth: 360 }}>
+            <option value="">Select a student…</option>
+            {students.map(s => <option key={s.id} value={s.id}>{s.name}{s.grade ? " · Grade " + s.grade : ""}</option>)}
+          </select>
+
+          {!sel ? null :
+            loading ? <p className="muted" style={{ marginTop: 14 }}>Loading…</p> :
+            classes.length === 0 ? <p className="muted" style={{ marginTop: 14 }}>{chosen && chosen.name} is not enrolled in any class.</p> :
+            <div style={{ marginTop: 16 }}>
+              <div className="dues-summary">
+                <span>Total pending for <b>{chosen && chosen.name}</b>:</span>
+                <span className="dues-grand">{money(grandTotal)}</span>
+                <span className="muted">· {grandDays} day{grandDays === 1 ? "" : "s"} across {perClass.filter(c => c.pendingCount > 0).length} class{perClass.filter(c => c.pendingCount > 0).length === 1 ? "" : "es"}</span>
+              </div>
+
+              {perClass.map(c => (
+                <div className="dues-class" key={c.classId}>
+                  <div className="row-between">
+                    <h4 style={{ margin: 0 }}>{c.className}
+                      <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}>
+                        {" "}· {[c.subject, c.dayOfWeek, money(c.monthlyFee) + "/day"].filter(Boolean).join(" · ")}
+                      </span>
+                    </h4>
+                    <span className={c.pendingCount > 0 ? "dues-amt" : "muted"}>
+                      {c.pendingCount > 0 ? money(c.pendingTotal) + " · " + c.pendingCount + " day" + (c.pendingCount === 1 ? "" : "s") : "No dues ✓"}
+                    </span>
+                  </div>
+                  {c.pendingCount > 0 &&
+                    <div className="dues-days">
+                      {c.pendingDays.map((d, i) => <span className="dues-chip" key={i}>🔴 {fmtDate(d.date)}</span>)}
+                    </div>
+                  }
+                </div>
+              ))}
+            </div>
+          }
         </div>
       );
     }

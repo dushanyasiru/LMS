@@ -578,3 +578,16 @@ input:focus, select:focus, textarea:focus {
 .modal-icon { font-size: 2.2rem; line-height: 1; }
 .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
 @keyframes modalpop { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* Teacher "Dues" view — student-wise pending totals */
+.dues-summary {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 12px 14px; border-radius: 10px; margin-bottom: 14px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; font-size: 0.95rem;
+}
+.dues-grand { font-size: 1.25rem; font-weight: 800; }
+[data-theme="dark"] .dues-summary { background: #3f1d1d; border-color: #7f1d1d; color: #fecaca; }
+.dues-class { border-top: 1px solid var(--border); padding: 12px 0; }
+.dues-amt { font-weight: 700; color: var(--danger); white-space: nowrap; }
+.dues-days { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.dues-chip { font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); }
