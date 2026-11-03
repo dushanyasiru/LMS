@@ -1,7 +1,9 @@
 package com.ict.lms.web;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -81,6 +83,42 @@ public class StudentController {
         u.setPasswordHash(encoder.encode(req.password()));
         users.save(u);
         return new StudentDto(u.getId(), u.getFullName(), u.getEmail(), u.getGrade());
+    }
+
+    /**
+     * Academy-wide outstanding fees: every enrolled student's PENDING days x their class fee.
+     * A day with no recorded status counts as PENDING (same rule as the per-student view).
+     */
+    @GetMapping("/dues-total")
+    public Map<String, Object> duesTotal() {
+        // "classId_studentId" -> set of sessionIds that have a non-PENDING status recorded
+        Map<String, Set<Long>> settled = new java.util.HashMap<>();
+        sessionPayments.findAll().forEach(sp -> {
+            if (sp.getStatus() != PaymentStatus.PENDING) {
+                String key = sp.getSession().getTuitionClass().getId() + "_" + sp.getStudent().getId();
+                settled.computeIfAbsent(key, k -> new HashSet<>()).add(sp.getSession().getId());
+            }
+        });
+        Map<Long, List<Long>> sessionIdsByClass = sessions.findAll().stream()
+                .collect(Collectors.groupingBy(s -> s.getTuitionClass().getId(),
+                        Collectors.mapping(s -> s.getId(), Collectors.toList())));
+
+        double total = 0;
+        long days = 0;
+        Set<Long> owing = new HashSet<>();
+        for (var e : payments.findAll()) {
+            Long classId = e.getTuitionClass().getId();
+            Long studentId = e.getStudent().getId();
+            Set<Long> done = settled.getOrDefault(classId + "_" + studentId, Set.of());
+            long pending = sessionIdsByClass.getOrDefault(classId, List.of()).stream()
+                    .filter(id -> !done.contains(id)).count();
+            if (pending > 0) {
+                days += pending;
+                total += pending * (e.getTuitionClass().getMonthlyFee() == null ? 0 : e.getTuitionClass().getMonthlyFee());
+                owing.add(studentId);
+            }
+        }
+        return Map.of("totalAmount", total, "totalDays", days, "studentsOwing", owing.size());
     }
 
     /**

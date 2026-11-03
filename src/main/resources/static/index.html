@@ -97,6 +97,7 @@
         create: (data) => api.request("/api/students", { method: "POST", body: JSON.stringify(data) }),
         remove: (id) => api.request("/api/students/" + id, { method: "DELETE" }),
         fees: (id) => api.request("/api/students/" + id + "/fees"),
+        duesTotal: () => api.request("/api/students/dues-total"),
       },
       teachers: {
         list: () => api.request("/api/teachers"),
@@ -464,9 +465,13 @@
       const [sel, setSel] = useState("");
       const [classes, setClasses] = useState([]);
       const [loading, setLoading] = useState(false);
+      const [overall, setOverall] = useState(null);   // academy-wide outstanding
 
       useEffect(() => {
-        (async () => { try { setStudents(await api.students.list()); } catch (e) { alert(e.message); } })();
+        (async () => {
+          try { setStudents(await api.students.list()); } catch (e) { alert(e.message); }
+          try { setOverall(await api.students.duesTotal()); } catch (e) { /* headline is best-effort */ }
+        })();
       }, []);
 
       async function pick(id) {
@@ -490,12 +495,22 @@
 
       return (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>Student Dues <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}> · pending fees, class by class</span></h3>
-          <select value={sel} onChange={e => pick(e.target.value)} style={{ maxWidth: 360 }}>
-            <option value="">Select a student…</option>
-            {students.map(s => <option key={s.id} value={s.id}>{s.name}{s.grade ? " · Grade " + s.grade : ""}</option>)}
-          </select>
-
+          <div className="dues-head">
+            <div>
+              <h3 style={{ marginTop: 0 }}>Student Dues <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}> · pending fees, class by class</span></h3>
+              <select value={sel} onChange={e => pick(e.target.value)} style={{ maxWidth: 360 }}>
+                <option value="">Select a student…</option>
+                {students.map(s => <option key={s.id} value={s.id}>{s.name}{s.grade ? " · Grade " + s.grade : ""}</option>)}
+              </select>
+            </div>
+            {overall && (
+              <div className="dues-overall">
+                <div className="dues-overall-label">Total due (all students)</div>
+                <div className="dues-overall-amt">{money(overall.totalAmount)}</div>
+                <div className="muted">{overall.totalDays} pending day{overall.totalDays === 1 ? "" : "s"} · {overall.studentsOwing} student{overall.studentsOwing === 1 ? "" : "s"}</div>
+              </div>
+            )}
+          </div>
           {!sel ? null :
             loading ? <p className="muted" style={{ marginTop: 14 }}>Loading…</p> :
             classes.length === 0 ? <p className="muted" style={{ marginTop: 14 }}>{chosen && chosen.name} is not enrolled in any class.</p> :

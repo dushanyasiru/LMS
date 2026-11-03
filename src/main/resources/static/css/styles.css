@@ -587,6 +587,15 @@ input:focus, select:focus, textarea:focus {
 }
 .dues-grand { font-size: 1.25rem; font-weight: 800; }
 [data-theme="dark"] .dues-summary { background: #3f1d1d; border-color: #7f1d1d; color: #fecaca; }
+/* Headline: overall outstanding, top-right of the Dues card */
+.dues-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.dues-overall {
+  min-width: 220px; text-align: right; padding: 12px 18px; border-radius: 12px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+}
+.dues-overall-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.dues-overall-amt { font-size: 1.7rem; font-weight: 800; line-height: 1.2; }
+[data-theme="dark"] .dues-overall { background: #3f1d1d; border-color: #7f1d1d; color: #fecaca; }
 .dues-class { border-top: 1px solid var(--border); padding: 12px 0; }
 .dues-amt { font-weight: 700; color: var(--danger); white-space: nowrap; }
 .dues-days { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
