@@ -596,6 +596,9 @@ input:focus, select:focus, textarea:focus {
 .dues-overall-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
 .dues-overall-amt { font-size: 1.7rem; font-weight: 800; line-height: 1.2; }
 [data-theme="dark"] .dues-overall { background: #3f1d1d; border-color: #7f1d1d; color: #fecaca; }
+/* Teacher "Income" report */
+.table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.income-total td { font-weight: 800; border-top: 2px solid var(--border); }
 .dues-class { border-top: 1px solid var(--border); padding: 12px 0; }
 .dues-amt { font-weight: 700; color: var(--danger); white-space: nowrap; }
 .dues-days { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

@@ -99,6 +99,9 @@
         fees: (id) => api.request("/api/students/" + id + "/fees"),
         duesTotal: () => api.request("/api/students/dues-total"),
       },
+      income: {
+        monthly: () => api.request("/api/income/monthly"),
+      },
       teachers: {
         list: () => api.request("/api/teachers"),
         create: (data) => api.request("/api/teachers", { method: "POST", body: JSON.stringify(data) }),
@@ -438,6 +441,7 @@
         ["assignments", "Assignments"],
         ["classes", "Classes & Fees"],
         ["dues", "Dues"],
+        ["income", "Income"],
         ["students", "Students"],
         ["teachers", "Teachers"],
       ];
@@ -453,8 +457,58 @@
           {tab === "assignments" && <AssignmentsPanel />}
           {tab === "classes" && <ClassesPanel />}
           {tab === "dues" && <DuesPanel />}
+          {tab === "income" && <IncomePanel />}
           {tab === "students" && <StudentsPanel />}
           {tab === "teachers" && <TeachersPanel me={user} />}
+        </div>
+      );
+    }
+
+    /** Teacher: money received per calendar month (by received date). */
+    function IncomePanel() {
+      const [report, setReport] = useState(null);
+      const [loading, setLoading] = useState(true);
+      useEffect(() => {
+        (async () => {
+          try { setReport(await api.income.monthly()); } catch (e) { alert(e.message); }
+          finally { setLoading(false); }
+        })();
+      }, []);
+
+      // "2026-01" -> "January 2026"
+      const monthLabel = (ym) => {
+        const [y, m] = ym.split("-").map(Number);
+        return new Date(y, m - 1, 1).toLocaleString("en", { month: "long", year: "numeric" });
+      };
+
+      return (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>Income <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}> · money received, month by month</span></h3>
+          {loading ? <p className="muted">Loading…</p> :
+            !report || report.months.length === 0 ? <p className="muted">No payments recorded yet.</p> :
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr><th>Month</th><th className="num">Total received</th></tr></thead>
+                <tbody>
+                  {report.months.map(m => (
+                    <tr key={m.month}>
+                      <td>{monthLabel(m.month)}</td>
+                      <td className="num">{money(m.total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="income-total">
+                    <td>Total</td>
+                    <td className="num">{money(report.grandTotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          }
+          {report && report.uncounted > 0 &&
+            <p className="muted" style={{ marginBottom: 0 }}>
+              {report.uncounted} older paid day{report.uncounted === 1 ? "" : "s"} not counted (no amount/date recorded).
+            </p>
+          }
         </div>
       );
     }
