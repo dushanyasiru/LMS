@@ -126,6 +126,7 @@
         update: (id, data) => api.request("/api/classes/" + id, { method: "PUT", body: JSON.stringify(data) }),
         remove: (id) => api.request("/api/classes/" + id, { method: "DELETE" }),
         sessions: (id) => api.request("/api/classes/" + id + "/sessions"),
+        calendar: () => api.request("/api/classes/calendar"),
         addSession: (id, date) => api.request("/api/classes/" + id + "/sessions", { method: "POST", body: JSON.stringify({ date }) }),
         editSession: (id, sid, date) => api.request("/api/classes/" + id + "/sessions/" + sid, { method: "PUT", body: JSON.stringify({ date }) }),
         deleteSession: (id, sid) => api.request("/api/classes/" + id + "/sessions/" + sid, { method: "DELETE" }),
@@ -440,6 +441,7 @@
         ["papers", "Papers"],
         ["assignments", "Assignments"],
         ["classes", "Classes & Fees"],
+        ["calendar", "Calendar"],
         ["dues", "Dues"],
         ["income", "Income"],
         ["students", "Students"],
@@ -456,6 +458,7 @@
           {tab === "papers" && <PapersPanel />}
           {tab === "assignments" && <AssignmentsPanel />}
           {tab === "classes" && <ClassesPanel />}
+          {tab === "calendar" && <CalendarPanel />}
           {tab === "dues" && <DuesPanel />}
           {tab === "income" && <IncomePanel />}
           {tab === "students" && <StudentsPanel />}
@@ -1046,6 +1049,77 @@
       if (!iso) return "";
       const [y, m, d] = iso.split("-");
       return d + "/" + m + "/" + y;
+    }
+
+    /** Teacher: large month calendar of every class date, labelled like "Grade 10 EM". */
+    function CalendarPanel() {
+      const now = new Date();
+      const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });   // m = 0..11
+      const [entries, setEntries] = useState([]);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        (async () => {
+          try { setEntries(await api.classes.calendar()); } catch (e) { alert(e.message); }
+          finally { setLoading(false); }
+        })();
+      }, []);
+
+      const pad = (n) => String(n).padStart(2, "0");
+      const iso = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+      const todayIso = iso(new Date());
+      const MED = { english: "EM", sinhala: "SM", tamil: "TM" };
+      const label = (c) => "Grade " + c.grade + (c.medium ? " " + (MED[c.medium.trim().toLowerCase()] || c.medium) : "");
+
+      // date -> entries
+      const byDate = {};
+      entries.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+
+      // Build the weeks (Mon-first) covering the visible month.
+      const first = new Date(ym.y, ym.m, 1);
+      const offset = (first.getDay() + 6) % 7;                 // Mon=0 … Sun=6
+      const start = new Date(ym.y, ym.m, 1 - offset);
+      const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
+      const weeks = Math.ceil((offset + daysInMonth) / 7);
+      const cells = Array.from({ length: weeks * 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+
+      const monthCount = cells.filter(d => d.getMonth() === ym.m).reduce((n, d) => n + (byDate[iso(d)] || []).length, 0);
+      const shift = (delta) => setYm(({ y, m }) => { const d = new Date(y, m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+      const title = new Date(ym.y, ym.m, 1).toLocaleString("en", { month: "long", year: "numeric" });
+
+      return (
+        <div className="card">
+          <div className="cal-head">
+            <h3 style={{ margin: 0 }}>Class calendar</h3>
+            <div className="cal-nav">
+              <button className="link-btn" onClick={() => shift(-1)} aria-label="Previous month">◀</button>
+              <span className="cal-title">{title}</span>
+              <button className="link-btn" onClick={() => shift(1)} aria-label="Next month">▶</button>
+              <button className="link-btn" onClick={() => setYm({ y: now.getFullYear(), m: now.getMonth() })}>Today</button>
+            </div>
+          </div>
+          {loading ? <p className="muted">Loading…</p> :
+            <div className="cal-scroll">
+              <div className="cal-grid">
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => <div className="cal-dow" key={d}>{d}</div>)}
+                {cells.map(d => {
+                  const key = iso(d);
+                  const inMonth = d.getMonth() === ym.m;
+                  return (
+                    <div key={key} className={"cal-cell" + (inMonth ? "" : " out") + (key === todayIso ? " today" : "")}>
+                      <div className="cal-daynum">{d.getDate()}</div>
+                      {(byDate[key] || []).map((c, i) => (
+                        <div key={i} className={"cal-chip g" + c.grade + (c.status !== "ACTIVE" ? " off" : "")} title={c.className}>{label(c)}</div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          }
+          {!loading && monthCount === 0 && <p className="muted" style={{ marginBottom: 0 }}>No class dates this month.</p>}
+        </div>
+      );
     }
 
     function ClassesPanel() {

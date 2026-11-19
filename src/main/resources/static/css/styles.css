@@ -596,6 +596,28 @@ input:focus, select:focus, textarea:focus {
 .dues-overall-label { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
 .dues-overall-amt { font-size: 1.7rem; font-weight: 800; line-height: 1.2; }
 [data-theme="dark"] .dues-overall { background: #3f1d1d; border-color: #7f1d1d; color: #fecaca; }
+/* Teacher "Calendar" tab — large month grid */
+.cal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.cal-nav { display: flex; align-items: center; gap: 8px; }
+.cal-nav .link-btn { margin-left: 0; }
+.cal-title { font-weight: 800; font-size: 1.1rem; min-width: 150px; text-align: center; }
+.cal-scroll { overflow-x: auto; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-width: 770px; }
+.cal-dow { background: var(--bg); padding: 8px 10px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
+.cal-cell { background: var(--card); min-height: 112px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.cal-cell.out { background: var(--bg); opacity: 0.55; }
+.cal-daynum { font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+.cal-cell.today { box-shadow: inset 0 0 0 2px var(--brand); }
+.cal-cell.today .cal-daynum { color: #fff; background: var(--brand); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; }
+.cal-chip { font-size: 0.8rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; line-height: 1.2; cursor: default; }
+.cal-chip.g10 { background: #e0e7ff; color: #3730a3; }
+.cal-chip.g11 { background: #ccfbf1; color: #115e59; }
+.cal-chip:not(.g10):not(.g11) { background: #e5e7eb; color: #374151; }
+.cal-chip.off { opacity: 0.45; text-decoration: line-through; }
+[data-theme="dark"] .cal-chip.g10 { background: #312e81; color: #c7d2fe; }
+[data-theme="dark"] .cal-chip.g11 { background: #134e4a; color: #99f6e4; }
+[data-theme="dark"] .cal-chip:not(.g10):not(.g11) { background: #374151; color: #e5e7eb; }
+
 /* Teacher "Income" report */
 .table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .income-total td { font-weight: 800; border-top: 2px solid var(--border); }

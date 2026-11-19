@@ -32,6 +32,7 @@ import com.ict.lms.repo.ClassPaymentRepository;
 import com.ict.lms.repo.ClassSessionRepository;
 import com.ict.lms.repo.SessionPaymentRepository;
 import com.ict.lms.repo.TuitionClassRepository;
+import com.ict.lms.web.dto.CalendarEntryDto;
 import com.ict.lms.web.dto.ClassDto;
 import com.ict.lms.web.dto.ClassSessionDto;
 import com.ict.lms.web.dto.EnrollRequest;
@@ -98,6 +99,19 @@ public class ClassController {
     }
 
     // ---------------- Sessions (class dates) ----------------
+
+    /** Every class date across all classes, for the teacher's calendar (oldest first). */
+    @GetMapping("/calendar")
+    public List<CalendarEntryDto> calendar() {
+        return sessions.findAll().stream()
+                .sorted(Comparator.comparing(ClassSession::getSessionDate))
+                .map(s -> {
+                    TuitionClass c = s.getTuitionClass();
+                    return new CalendarEntryDto(s.getSessionDate(), c.getId(), c.getName(),
+                            c.getGrade(), c.getMedium(), c.getStatus().name());
+                })
+                .toList();
+    }
 
     @GetMapping("/{id}/sessions")
     public List<ClassSessionDto> sessions(@PathVariable Long id) {
