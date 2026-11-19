@@ -142,7 +142,7 @@ input:focus, select:focus, textarea:focus {
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 .who { color: var(--muted); font-size: 0.9rem; }
 
-.container { max-width: 960px; margin: 24px auto; padding: 0 20px; }
+.container { max-width: none; margin: 24px auto; padding: 0 max(20px, 2.5vw); }
 
 .link-btn {
   background: none;
@@ -232,18 +232,18 @@ input:focus, select:focus, textarea:focus {
 
 .hero {
   display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px;
-  align-items: center; padding: 6vh 6vw; max-width: 1200px; margin: 0 auto;
+  align-items: center; padding: 6vh 6vw; max-width: none; margin: 0 auto;
 }
 .badge {
   display: inline-block; background: #ede9fe; color: #6d28d9;
   padding: 8px 18px; border-radius: 999px; font-weight: 700; font-size: 0.78rem; letter-spacing: 0.5px;
 }
-.hero-title { font-size: clamp(2.1rem, 5vw, 3.6rem); line-height: 1.1; margin: 18px 0; font-weight: 800; color: #1f2937; }
+.hero-title { font-size: clamp(2.1rem, 4.4vw, 5.2rem); line-height: 1.1; margin: 18px 0; font-weight: 800; color: #1f2937; }
 .hero-title .accent { color: #6d28d9; }
 .teacher-block { margin: 18px 0 26px; }
-.t-name { font-size: 1.35rem; font-weight: 800; margin: 0; color: #1f2937; }
-.t-role { font-size: 1.05rem; color: var(--brand); font-weight: 700; margin: 2px 0 8px; }
-.t-qual { margin: 2px 0; color: var(--muted); }
+.t-name { font-size: clamp(1.35rem, 1.7vw, 2rem); font-weight: 800; margin: 0; color: #1f2937; }
+.t-role { font-size: clamp(1.05rem, 1.3vw, 1.5rem); color: var(--brand); font-weight: 700; margin: 2px 0 8px; }
+.t-qual { margin: 2px 0; color: var(--muted); font-size: clamp(1rem, 1.1vw, 1.3rem); }
 .cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .call-card {
   background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow);
@@ -252,7 +252,7 @@ input:focus, select:focus, textarea:focus {
 
 .hero-photo { position: relative; display: flex; justify-content: center; }
 .hero-photo img {
-  position: relative; width: 100%; max-width: 360px; border-radius: 20px;
+  position: relative; width: 100%; max-width: clamp(320px, 30vw, 620px); border-radius: 20px;
   box-shadow: 0 20px 50px rgba(80, 40, 160, 0.25); object-fit: cover; z-index: 1;
 }
 .photo-blob {
@@ -262,7 +262,7 @@ input:focus, select:focus, textarea:focus {
 
 .offer {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
-  max-width: 1100px; margin: 10px auto 60px; padding: 0 6vw;
+  max-width: none; margin: 10px auto 60px; padding: 0 6vw;
 }
 .offer-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
 .offer-icon { font-size: 2rem; }
@@ -402,8 +402,8 @@ input:focus, select:focus, textarea:focus {
 /* ============================================================
    About section + section headings (home page)
    ============================================================ */
-.section-title { max-width: 1100px; margin: 10px auto 6px; padding: 0 6vw; font-size: 1.6rem; color: #1f2937; }
-.about-sec { max-width: 1100px; margin: 0 auto 30px; padding: 0 6vw; }
+.section-title { max-width: none; margin: 10px auto 6px; padding: 0 6vw; font-size: clamp(1.6rem, 2vw, 2.4rem); color: #1f2937; }
+.about-sec { max-width: none; margin: 0 auto 30px; padding: 0 6vw; }
 .about-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 26px; box-shadow: var(--shadow); }
 .qual-list { list-style: none; padding: 0; margin: 10px 0 14px; }
 .qual-list li { padding: 4px 0; font-weight: 600; color: #1f2937; }
