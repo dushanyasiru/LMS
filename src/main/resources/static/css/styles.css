@@ -161,20 +161,35 @@ input:focus, select:focus, textarea:focus {
 .muted { color: var(--muted); }
 
 /* Tabs */
-.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+/* Main tabs: a rounded "dock" with a gradient active tab */
+.tabs {
+  display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 18px; padding: 6px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--shadow);
+}
 .tab {
-  background: var(--card); border: 1px solid var(--border); color: inherit;
-  padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 0.9rem; font-weight: 600;
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  padding: 12px 22px; border-radius: 13px; cursor: pointer; font-size: 1rem; font-weight: 600;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
-.tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.tab:hover { background: var(--bg); color: var(--text); }
+.tab.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark)); color: #fff;
+  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.35); transform: translateY(-1px);
+}
 
-/* Grade pills */
-.grade-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
-.pill {
-  background: var(--card); border: 1px solid var(--border); color: inherit;
-  padding: 7px 16px; border-radius: 999px; cursor: pointer; font-size: 0.9rem;
+/* Grade switch: a segmented control */
+.grade-tabs {
+  display: inline-flex; gap: 4px; margin-bottom: 16px; padding: 4px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
 }
-.pill.active { background: #eef2ff; color: var(--brand); border-color: var(--brand); font-weight: 600; }
+.pill {
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  padding: 9px 24px; border-radius: 10px; cursor: pointer; font-size: 0.95rem; font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+}
+.pill:hover { background: var(--bg); color: var(--text); }
+.pill.active { background: #eef2ff; color: var(--brand); border-color: var(--brand); font-weight: 700; }
 
 /* Cards contain headings */
 .card h3 { margin-top: 0; }
