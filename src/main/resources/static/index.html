@@ -948,9 +948,37 @@
           setEditId(null); setMsg("✓ Student updated"); load();
         } catch (e) { alert(e.message); } finally { setSaving(false); }
       }
+      // Esc closes the edit popup
+      useEffect(() => {
+        if (editId == null) return;
+        const onKey = (e) => { if (e.key === "Escape") setEditId(null); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [editId]);
 
       return (
         <div>
+          {editId != null && (
+            <div className="modal-overlay" onClick={() => setEditId(null)}>
+              <form className="modal-card modal-form" onClick={e => e.stopPropagation()} onSubmit={saveEdit}>
+                <h3 style={{ margin: "0 0 14px" }}>Edit student</h3>
+                <label>Full name</label>
+                <input value={ed.fullName} onChange={e => setEd({ ...ed, fullName: e.target.value })} required autoFocus />
+                <label>Email (their login)</label>
+                <input type="email" value={ed.email} onChange={e => setEd({ ...ed, email: e.target.value })} required />
+                <label>Grade</label>
+                <select value={ed.grade} onChange={e => setEd({ ...ed, grade: e.target.value })}>
+                  {STUDENT_GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}
+                </select>
+                <label>New password <span className="muted" style={{ fontWeight: 400 }}>(leave blank to keep the current one)</span></label>
+                <input value={ed.password} onChange={e => setEd({ ...ed, password: e.target.value })} placeholder="••••••••" />
+                <div className="modal-actions" style={{ justifyContent: "flex-end" }}>
+                  <button type="button" className="link-btn" onClick={() => setEditId(null)}>Cancel</button>
+                  <button className="btn-inline" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
+                </div>
+              </form>
+            </div>
+          )}
           <div className="card">
             <h3>Add a student</h3>
             <form onSubmit={create} className="form-grid">
@@ -972,22 +1000,7 @@
                 <table className="table">
                   <thead><tr><th>Name</th><th>Email</th><th>Grade</th><th></th></tr></thead>
                   <tbody>
-                    {students.map(s => editId === s.id ? (
-                      <tr key={s.id} className="edit-row">
-                        <td colSpan={4}>
-                          <form onSubmit={saveEdit} className="form-grid">
-                            <input placeholder="Full name" value={ed.fullName} onChange={e => setEd({ ...ed, fullName: e.target.value })} required />
-                            <input placeholder="Email (their login)" type="email" value={ed.email} onChange={e => setEd({ ...ed, email: e.target.value })} required />
-                            <select value={ed.grade} onChange={e => setEd({ ...ed, grade: e.target.value })}>
-                              {STUDENT_GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}
-                            </select>
-                            <input placeholder="New password (leave blank to keep)" value={ed.password} onChange={e => setEd({ ...ed, password: e.target.value })} />
-                            <button className="btn-inline" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
-                            <button type="button" className="link-btn" onClick={() => setEditId(null)}>Cancel</button>
-                          </form>
-                        </td>
-                      </tr>
-                    ) : (
+                    {students.map(s => (
                       <tr key={s.id}>
                         <td>{s.name}</td><td>{s.email}</td><td>{s.grade}</td>
                         <td>

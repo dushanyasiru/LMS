@@ -705,3 +705,7 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(99, 102, 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.45); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.7); background-clip: padding-box; border: 2px solid transparent; }
+
+/* Popup form variant (student edit): wider, left-aligned */
+.modal-card.modal-form { max-width: 460px; text-align: left; }
+.modal-card.modal-form label { margin-top: 12px; }
