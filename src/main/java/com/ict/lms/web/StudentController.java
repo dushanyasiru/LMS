@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +34,7 @@ import com.ict.lms.web.dto.CreateStudentRequest;
 import com.ict.lms.web.dto.MyClassFeesDto;
 import com.ict.lms.web.dto.MyFeeDayDto;
 import com.ict.lms.web.dto.StudentDto;
+import com.ict.lms.web.dto.UpdateStudentRequest;
 
 import jakarta.validation.Valid;
 
@@ -81,6 +83,28 @@ public class StudentController {
         u.setGrade(req.grade());
         u.setRole(Role.STUDENT);
         u.setPasswordHash(encoder.encode(req.password()));
+        users.save(u);
+        return new StudentDto(u.getId(), u.getFullName(), u.getEmail(), u.getGrade());
+    }
+
+    /** Edit a student's name, email, grade and (optionally) reset their password. */
+    @PutMapping("/{id}")
+    public StudentDto update(@PathVariable Long id, @Valid @RequestBody UpdateStudentRequest req) {
+        AppUser u = users.findById(id)
+                .filter(x -> x.getRole() == Role.STUDENT)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+        String email = req.email().trim().toLowerCase();
+        users.findByEmail(email).ifPresent(other -> {
+            if (!other.getId().equals(id)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "A user with that email already exists");
+            }
+        });
+        u.setFullName(req.fullName().trim());
+        u.setEmail(email);
+        u.setGrade(req.grade());
+        if (req.password() != null && !req.password().isBlank()) {
+            u.setPasswordHash(encoder.encode(req.password()));
+        }
         users.save(u);
         return new StudentDto(u.getId(), u.getFullName(), u.getEmail(), u.getGrade());
     }

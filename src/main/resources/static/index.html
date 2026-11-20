@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Stack ICT Academy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -95,6 +98,7 @@
       students: {
         list: () => api.request("/api/students"),
         create: (data) => api.request("/api/students", { method: "POST", body: JSON.stringify(data) }),
+        update: (id, data) => api.request("/api/students/" + id, { method: "PUT", body: JSON.stringify(data) }),
         remove: (id) => api.request("/api/students/" + id, { method: "DELETE" }),
         fees: (id) => api.request("/api/students/" + id + "/fees"),
         duesTotal: () => api.request("/api/students/dues-total"),
@@ -929,6 +933,22 @@
         try { await api.students.remove(id); load(); } catch (e) { alert(e.message); }
       }
 
+      // ---- inline edit ----
+      const [editId, setEditId] = useState(null);
+      const [ed, setEd] = useState({ fullName: "", email: "", grade: 10, password: "" });
+      const [saving, setSaving] = useState(false);
+      function startEdit(s) { setEditId(s.id); setEd({ fullName: s.name, email: s.email, grade: s.grade || 10, password: "" }); }
+      async function saveEdit(e) {
+        e.preventDefault(); setSaving(true);
+        try {
+          await api.students.update(editId, {
+            fullName: ed.fullName, email: ed.email, grade: Number(ed.grade),
+            password: ed.password.trim() === "" ? null : ed.password,   // blank = keep current password
+          });
+          setEditId(null); setMsg("✓ Student updated"); load();
+        } catch (e) { alert(e.message); } finally { setSaving(false); }
+      }
+
       return (
         <div>
           <div className="card">
@@ -937,8 +957,7 @@
               <input placeholder="Full name" value={fullName} onChange={e => setFullName(e.target.value)} required />
               <input placeholder="Email (their login)" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
               <select value={grade} onChange={e => setGrade(e.target.value)}>
-                <option value={10}>Grade 10</option>
-                <option value={11}>Grade 11</option>
+                {STUDENT_GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}
               </select>
               <input placeholder="Temporary password" value={password} onChange={e => setPassword(e.target.value)} required />
               <button className="btn-inline" disabled={busy}>{busy ? "Adding…" : "Add student"}</button>
@@ -953,10 +972,28 @@
                 <table className="table">
                   <thead><tr><th>Name</th><th>Email</th><th>Grade</th><th></th></tr></thead>
                   <tbody>
-                    {students.map(s => (
+                    {students.map(s => editId === s.id ? (
+                      <tr key={s.id} className="edit-row">
+                        <td colSpan={4}>
+                          <form onSubmit={saveEdit} className="form-grid">
+                            <input placeholder="Full name" value={ed.fullName} onChange={e => setEd({ ...ed, fullName: e.target.value })} required />
+                            <input placeholder="Email (their login)" type="email" value={ed.email} onChange={e => setEd({ ...ed, email: e.target.value })} required />
+                            <select value={ed.grade} onChange={e => setEd({ ...ed, grade: e.target.value })}>
+                              {STUDENT_GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}
+                            </select>
+                            <input placeholder="New password (leave blank to keep)" value={ed.password} onChange={e => setEd({ ...ed, password: e.target.value })} />
+                            <button className="btn-inline" disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+                            <button type="button" className="link-btn" onClick={() => setEditId(null)}>Cancel</button>
+                          </form>
+                        </td>
+                      </tr>
+                    ) : (
                       <tr key={s.id}>
                         <td>{s.name}</td><td>{s.email}</td><td>{s.grade}</td>
-                        <td><button className="link-btn danger" onClick={() => del(s.id)}>Delete</button></td>
+                        <td>
+                          <button className="link-btn" onClick={() => startEdit(s)}>Edit</button>
+                          <button className="link-btn danger" onClick={() => del(s.id)}>Delete</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1042,7 +1079,8 @@
     // ============================================================
     const CLASS_MEDIUMS = ["Sinhala", "English", "Tamil"];
     const CLASS_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const FEE_OPTIONS = [["PAID", "🟢 Paid"], ["PARTIAL", "🟡 Absent"], ["PENDING", "🔴 Pending"], ["WAIVED", "🔵 Waived"]];
+    const STUDENT_GRADES = [6, 7, 8, 9, 10, 11];   // grades a student can be enrolled in
+    const FEE_OPTIONS =[["PAID", "🟢 Paid"], ["PARTIAL", "🟡 Absent"], ["PENDING", "🔴 Pending"], ["WAIVED", "🔵 Waived"]];
 
     function money(v) { return v == null || v === "" ? "—" : "Rs. " + Number(v).toLocaleString(); }
     function fmtDate(iso) {

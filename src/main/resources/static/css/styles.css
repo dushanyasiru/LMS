@@ -640,3 +640,68 @@ input:focus, select:focus, textarea:focus {
 .dues-amt { font-weight: 700; color: var(--danger); white-space: nowrap; }
 .dues-days { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .dues-chip { font-size: 0.8rem; padding: 4px 10px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); }
+
+/* ============================================================
+   MODERN REFRESH  (self-contained: delete this whole block to
+   return to the previous look)
+   Softer glass cards, Inter type, roomier controls, refined tables.
+   ============================================================ */
+body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; letter-spacing: -0.005em; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { letter-spacing: -0.02em; }
+
+/* Glass cards on the dashboards */
+.dash .card {
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(148, 163, 184, 0.28); border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.07);
+  padding: 26px;
+}
+.dash[data-theme="dark"] .card {
+  background: rgba(30, 41, 59, 0.66);
+  border-color: rgba(148, 163, 184, 0.16);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.card h3 { font-size: 1.15rem; font-weight: 700; }
+
+/* Top bar: translucent and sticky */
+.dash .topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+.dash[data-theme="dark"] .topbar { background: rgba(15, 23, 42, 0.62); border-bottom-color: rgba(148, 163, 184, 0.14); }
+
+/* Roomier, softer form controls */
+input, select, textarea { border-radius: 12px; padding: 11px 14px; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s; }
+input:hover, select:hover, textarea:hover { border-color: rgba(99, 102, 241, 0.55); }
+input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
+
+/* Buttons */
+.btn-inline {
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark)); border-radius: 12px; padding: 11px 20px;
+  box-shadow: 0 6px 14px rgba(79, 70, 229, 0.28); transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+}
+.btn-inline:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 10px 20px rgba(79, 70, 229, 0.34); }
+.btn-inline:active { transform: translateY(0); }
+.link-btn { border-radius: 10px; padding: 7px 14px; transition: background 0.15s, border-color 0.15s, transform 0.15s; }
+.link-btn:hover { transform: translateY(-1px); }
+
+/* Tables: quiet header, row hover */
+.table th { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+.table th, .table td { padding: 13px 14px; border-bottom-color: rgba(148, 163, 184, 0.2); }
+.table tbody tr { transition: background 0.12s; }
+.table tbody tr:hover { background: rgba(99, 102, 241, 0.07); }
+.file-list li { transition: background 0.12s; border-radius: 10px; padding-left: 8px; padding-right: 8px; }
+.file-list li:hover { background: rgba(99, 102, 241, 0.06); }
+
+/* Fee / status controls and chips a touch rounder */
+.fee-badge, .fee-pill { border-radius: 999px; }
+.cal-grid { border-radius: 16px; }
+
+/* Slim, unobtrusive scrollbars */
+* { scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, 0.5) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.45); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.7); background-clip: padding-box; border: 2px solid transparent; }
