@@ -50,6 +50,12 @@ public class TuitionClass {
     /** Auto dates have been generated up to (and including) this date. */
     private java.time.LocalDate autoUntil;
 
+    /** Manual drag-to-reorder position on the Classes & Fees grid. null = not reordered yet. */
+    private Integer sortOrder;
+
+    public Integer getSortOrder() { return sortOrder; }
+    public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+
     public Boolean getAutoDates() { return autoDates; }
     public void setAutoDates(Boolean autoDates) { this.autoDates = autoDates; }
 

@@ -39,6 +39,7 @@ import com.ict.lms.web.dto.ClassDto;
 import com.ict.lms.web.dto.ClassSessionDto;
 import com.ict.lms.web.dto.EnrollRequest;
 import com.ict.lms.web.dto.FeeStatusRequest;
+import com.ict.lms.web.dto.ReorderRequest;
 import com.ict.lms.web.dto.SaveClassRequest;
 import com.ict.lms.web.dto.SessionPaymentDto;
 import com.ict.lms.web.dto.SessionRequest;
@@ -75,7 +76,20 @@ public class ClassController {
     @GetMapping
     public List<ClassDto> list() {
         generator.topUpAll();
-        return classes.findAllByOrderByCreatedAtDesc().stream().map(this::toDto).toList();
+        return classes.findAllByOrderBySortOrderAscCreatedAtDesc().stream().map(this::toDto).toList();
+    }
+
+    /** Persists the teacher's drag-to-reorder of the class grid. */
+    @PutMapping("/reorder")
+    public void reorder(@RequestBody ReorderRequest req) {
+        if (req.classIds() == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "classIds is required");
+        int i = 0;
+        for (Long id : req.classIds()) {
+            TuitionClass c = classes.findById(id).orElse(null);
+            if (c == null) continue;
+            c.setSortOrder(i++);
+            classes.save(c);
+        }
     }
 
     @PostMapping
@@ -197,7 +211,13 @@ public class ClassController {
                 .toList();
     }
 
-    /** Enrol a student into the class (starts as PENDING). */
+    /**
+     * Enrol a student into the class (overall fee status starts as PENDING).
+     * Any class dates that already exist (from before this student joined) are marked
+     * WAIVED for them, not PENDING — the student wasn't enrolled yet for those sessions,
+     * so they aren't owed. This mirrors ClassDateGenerator's own convention of starting
+     * auto-added dates as WAIVED for already-enrolled students.
+     */
     @PostMapping("/{id}/students")
     public StudentFeeDto enroll(@PathVariable Long id, @RequestBody EnrollRequest req) {
         TuitionClass c = classes.findById(id)
@@ -214,6 +234,15 @@ public class ClassController {
             p.setStatus(PaymentStatus.PENDING);
             p.setUpdatedAt(Instant.now());
             payments.save(p);
+
+            for (ClassSession s : sessions.findByTuitionClassIdOrderBySessionDateAsc(id)) {
+                SessionPayment sp = new SessionPayment();
+                sp.setSession(s);
+                sp.setStudent(student);
+                sp.setStatus(PaymentStatus.WAIVED);
+                sp.setUpdatedAt(Instant.now());
+                sessionPayments.save(sp);
+            }
         }
         return new StudentFeeDto(student.getId(), student.getFullName(), c.getMonthlyFee(), p.getStatus().name());
     }

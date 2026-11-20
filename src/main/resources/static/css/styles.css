@@ -496,6 +496,11 @@ input:focus, select:focus, textarea:focus {
 }
 .class-card:hover { border-color: var(--brand); transform: translateY(-2px); }
 .class-card.selected { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand) inset, var(--shadow); }
+.class-card.dragging { opacity: 0.4; }
+.class-card.drag-over { border-color: var(--brand); border-style: dashed; }
+.cc-drag-handle { cursor: grab; color: var(--muted); font-size: 1.1rem; line-height: 1; margin-right: 2px; }
+.cc-drag-handle:active { cursor: grabbing; }
+.cc-left-group { display: flex; align-items: center; gap: 8px; }
 .cc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .cc-actions { display: flex; gap: 4px; }
 .cc-name { margin: 10px 0 2px; font-size: 1.1rem; }

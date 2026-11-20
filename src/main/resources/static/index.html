@@ -136,6 +136,7 @@
       },
       classes: {
         list: () => api.request("/api/classes"),
+        reorder: (classIds) => api.request("/api/classes/reorder", { method: "PUT", body: JSON.stringify({ classIds }) }),
         create: (data) => api.request("/api/classes", { method: "POST", body: JSON.stringify(data) }),
         update: (id, data) => api.request("/api/classes/" + id, { method: "PUT", body: JSON.stringify(data) }),
         remove: (id) => api.request("/api/classes/" + id, { method: "DELETE" }),
@@ -1591,12 +1592,34 @@
       const [loading, setLoading] = useState(true);
       const [selectedId, setSelectedId] = useState(null);
       const [editing, setEditing] = useState(null); // class object, {} for new, or null
+      const [dragId, setDragId] = useState(null);
+      const [overId, setOverId] = useState(null);
 
       async function load() {
         setLoading(true);
         try { setClasses(await api.classes.list()); } catch (e) { alert(e.message); } finally { setLoading(false); }
       }
       useEffect(() => { load(); }, []);
+
+      // Drag-to-reorder the class grid. Reorders optimistically, then persists the
+      // whole new sequence so it's remembered next time the page loads.
+      function onCardDragStart(c) { setDragId(c.id); }
+      function onCardDragOver(e, c) {
+        e.preventDefault();
+        if (c.id !== dragId) setOverId(c.id);
+      }
+      function onCardDrop(c) {
+        if (dragId == null || dragId === c.id) return;
+        const from = classes.findIndex(x => x.id === dragId);
+        const to = classes.findIndex(x => x.id === c.id);
+        if (from === -1 || to === -1) return;
+        const reordered = classes.slice();
+        const [moved] = reordered.splice(from, 1);
+        reordered.splice(to, 0, moved);
+        setClasses(reordered);
+        api.classes.reorder(reordered.map(x => x.id)).catch(e => { alert(e.message); load(); });
+      }
+      function onCardDragEnd() { setDragId(null); setOverId(null); }
 
       const selected = classes.find(c => c.id === selectedId) || null;
 
@@ -1634,7 +1657,10 @@
               {classes.map(c => (
                 <ClassCard key={c.id} c={c} selected={selectedId === c.id}
                   onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
-                  onEdit={() => setEditing(c)} onDelete={() => delClass(c)} onQuick={(patch) => quick(c, patch)} />
+                  onEdit={() => setEditing(c)} onDelete={() => delClass(c)} onQuick={(patch) => quick(c, patch)}
+                  dragging={dragId === c.id} dragOver={overId === c.id}
+                  onDragStart={() => onCardDragStart(c)} onDragOver={(e) => onCardDragOver(e, c)}
+                  onDrop={() => onCardDrop(c)} onDragEnd={onCardDragEnd} />
               ))}
             </div>
           }
@@ -1652,17 +1678,22 @@
       );
     }
 
-    function ClassCard({ c, selected, onSelect, onEdit, onDelete, onQuick }) {
+    function ClassCard({ c, selected, onSelect, onEdit, onDelete, onQuick,
+                         dragging, dragOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
       return (
-        <div className={"class-card" + (selected ? " selected" : "")} onClick={onSelect}>
+        <div className={"class-card" + (selected ? " selected" : "") + (dragging ? " dragging" : "") + (dragOver ? " drag-over" : "")}
+          onClick={onSelect} draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd}>
           <div className="cc-top">
-            <span className="cc-switches" onClick={e => e.stopPropagation()}>
+            <span className="cc-left-group">
+              <span className="cc-drag-handle" title="Drag to reorder" onClick={e => e.stopPropagation()}>⠿</span>
+              <span className="cc-switches" onClick={e => e.stopPropagation()}>
               <button type="button" className={"status-badge cc-toggle " + (c.status === "ACTIVE" ? "st-active" : "st-inactive")}
                 title="Tap to switch Active / Inactive" onClick={() => onQuick({ status: c.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })}>
                 {c.status === "ACTIVE" ? "Active" : "Inactive"}</button>
               <button type="button" className={"cc-toggle tt-toggle" + (c.showOnTimetable ? " on" : "")}
                 title="Tap to show / hide on the home-page timetable" onClick={() => onQuick({ showOnTimetable: !c.showOnTimetable })}>
                 {c.showOnTimetable ? "✓ On timetable" : "Hidden"}</button>
+              </span>
             </span>
             <span className="cc-actions" onClick={e => e.stopPropagation()}>
               <button className="link-btn" onClick={onEdit}>Edit</button>
