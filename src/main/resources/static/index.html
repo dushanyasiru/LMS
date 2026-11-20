@@ -109,6 +109,7 @@
       teachers: {
         list: () => api.request("/api/teachers"),
         create: (data) => api.request("/api/teachers", { method: "POST", body: JSON.stringify(data) }),
+        update: (id, data) => api.request("/api/teachers/" + id, { method: "PUT", body: JSON.stringify(data) }),
         remove: (id) => api.request("/api/teachers/" + id, { method: "DELETE" }),
       },
       submissions: {
@@ -1047,8 +1048,48 @@
         try { await api.teachers.remove(id); load(); } catch (e) { alert(e.message); }
       }
 
+      // ---- edit popup ----
+      const [editId, setEditId] = useState(null);
+      const [ed, setEd] = useState({ fullName: "", email: "", password: "" });
+      const [saving, setSaving] = useState(false);
+      function startEdit(t) { setEditId(t.id); setEd({ fullName: t.name, email: t.email, password: "" }); }
+      async function saveEdit(e) {
+        e.preventDefault(); setSaving(true);
+        try {
+          await api.teachers.update(editId, {
+            fullName: ed.fullName, email: ed.email,
+            password: ed.password.trim() === "" ? null : ed.password,   // blank = keep current password
+          });
+          setEditId(null); setMsg("✓ Teacher updated"); load();
+        } catch (e) { alert(e.message); } finally { setSaving(false); }
+      }
+      useEffect(() => {
+        if (editId == null) return;
+        const onKey = (e) => { if (e.key === "Escape") setEditId(null); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+      }, [editId]);
+
       return (
         <div>
+          {editId != null && (
+            <div className="modal-overlay" onClick={() => setEditId(null)}>
+              <form className="modal-card modal-form" onClick={e => e.stopPropagation()} onSubmit={saveEdit}>
+                <h3 style={{ margin: "0 0 14px" }}>Edit teacher</h3>
+                <label>Full name</label>
+                <input value={ed.fullName} onChange={e => setEd({ ...ed, fullName: e.target.value })} required autoFocus />
+                <label>Email (their login)</label>
+                <input type="email" value={ed.email} onChange={e => setEd({ ...ed, email: e.target.value })} required />
+                <label>New password <span className="muted" style={{ fontWeight: 400 }}>(leave blank to keep the current one)</span></label>
+                <input value={ed.password} onChange={e => setEd({ ...ed, password: e.target.value })} placeholder="••••••••" />
+                {editId === me.id && <p className="muted" style={{ margin: "12px 0 0", fontSize: "0.85rem" }}>You're editing your own account. Changes to your name show after you next log in.</p>}
+                <div className="modal-actions" style={{ justifyContent: "flex-end" }}>
+                  <button type="button" className="link-btn" onClick={() => setEditId(null)}>Cancel</button>
+                  <button className="btn-inline" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
+                </div>
+              </form>
+            </div>
+          )}
           <div className="card">
             <h3>Add a teacher</h3>
             <p className="muted" style={{ marginTop: 0 }}>
@@ -1073,9 +1114,10 @@
                       <tr key={t.id}>
                         <td>{t.name}{t.id === me.id ? " (you)" : ""}</td>
                         <td>{t.email}</td>
-                        <td>{t.id === me.id
-                          ? <span className="muted">—</span>
-                          : <button className="link-btn danger" onClick={() => del(t.id)}>Remove</button>}</td>
+                        <td>
+                          <button className="link-btn" onClick={() => startEdit(t)}>Edit</button>
+                          {t.id !== me.id && <button className="link-btn danger" onClick={() => del(t.id)}>Remove</button>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +21,7 @@ import com.ict.lms.model.Role;
 import com.ict.lms.repo.AppUserRepository;
 import com.ict.lms.security.AuthUser;
 import com.ict.lms.web.dto.CreateTeacherRequest;
+import com.ict.lms.web.dto.UpdateTeacherRequest;
 import com.ict.lms.web.dto.UserDto;
 
 import jakarta.validation.Valid;
@@ -56,6 +58,27 @@ public class TeacherController {
         u.setFullName(req.fullName());
         u.setRole(Role.TEACHER);
         u.setPasswordHash(encoder.encode(req.password()));
+        users.save(u);
+        return new UserDto(u.getId(), u.getFullName(), u.getEmail(), u.getRole().name(), u.getGrade());
+    }
+
+    /** Edit a teacher's name, email and (optionally) reset their password. Any teacher, including yourself. */
+    @PutMapping("/{id}")
+    public UserDto update(@PathVariable Long id, @Valid @RequestBody UpdateTeacherRequest req) {
+        AppUser u = users.findById(id)
+                .filter(x -> x.getRole() == Role.TEACHER)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Teacher not found"));
+        String email = req.email().trim().toLowerCase();
+        users.findByEmail(email).ifPresent(other -> {
+            if (!other.getId().equals(id)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "A user with that email already exists");
+            }
+        });
+        u.setFullName(req.fullName().trim());
+        u.setEmail(email);
+        if (req.password() != null && !req.password().isBlank()) {
+            u.setPasswordHash(encoder.encode(req.password()));
+        }
         users.save(u);
         return new UserDto(u.getId(), u.getFullName(), u.getEmail(), u.getRole().name(), u.getGrade());
     }
