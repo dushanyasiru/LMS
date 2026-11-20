@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -114,6 +115,9 @@ public class StudentController {
      * A day with no recorded status counts as PENDING (same rule as the per-student view).
      */
     @GetMapping("/dues-total")
+    @Transactional(readOnly = true) // session/student (now LAZY) are dereferenced via
+    // sp.getSession().getTuitionClass() below, after the repository call would otherwise
+    // have already returned (and closed its own short transaction).
     public Map<String, Object> duesTotal() {
         // "classId_studentId" -> set of sessionIds that have a non-PENDING status recorded
         Map<String, Set<Long>> settled = new java.util.HashMap<>();

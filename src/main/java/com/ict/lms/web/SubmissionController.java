@@ -114,21 +114,21 @@ public class SubmissionController {
     @GetMapping("/mine")
     @PreAuthorize("hasRole('STUDENT')")
     public List<SubmissionDto> mine(@AuthenticationPrincipal AuthUser user) {
-        return submissions.findByStudentId(user.id()).stream().map(this::toDto).toList();
+        return submissions.findByStudentIdFetchAll(user.id()).stream().map(this::toDto).toList();
     }
 
     /** Teacher: all submissions for one assignment. */
     @GetMapping("/assignment/{assignmentId}")
     @PreAuthorize("hasRole('TEACHER')")
     public List<SubmissionDto> forAssignment(@PathVariable Long assignmentId) {
-        return submissions.findByAssignmentId(assignmentId).stream().map(this::toDto).toList();
+        return submissions.findByAssignmentIdFetchAll(assignmentId).stream().map(this::toDto).toList();
     }
 
     /** Teacher: give marks + feedback. */
     @PostMapping("/{id}/grade")
     @PreAuthorize("hasRole('TEACHER')")
     public SubmissionDto grade(@PathVariable Long id, @RequestBody GradeRequest req) {
-        Submission s = submissions.findById(id)
+        Submission s = submissions.findByIdFetchAll(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Submission not found"));
         s.setMarks(req.marks());
         s.setFeedback(req.feedback());

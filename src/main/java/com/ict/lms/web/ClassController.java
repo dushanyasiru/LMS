@@ -113,7 +113,7 @@ public class ClassController {
     @GetMapping("/calendar")
     public List<CalendarEntryDto> calendar() {
         generator.topUpAll();
-        return sessions.findAll().stream()
+        return sessions.findAllFetchClass().stream()
                 .sorted(Comparator.comparing(ClassSession::getSessionDate))
                 .map(s -> {
                     TuitionClass c = s.getTuitionClass();
@@ -174,7 +174,7 @@ public class ClassController {
     public List<StudentFeeDto> fees(@PathVariable Long id) {
         TuitionClass c = classes.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class not found"));
-        return payments.findByTuitionClassId(id).stream()
+        return payments.findByTuitionClassIdFetchStudent(id).stream()
                 .sorted(Comparator.comparing(p -> p.getStudent().getFullName(), String.CASE_INSENSITIVE_ORDER))
                 .map(p -> new StudentFeeDto(p.getStudent().getId(), p.getStudent().getFullName(),
                         c.getMonthlyFee(), p.getStatus().name()))
@@ -186,6 +186,8 @@ public class ClassController {
     public List<StudentDto> available(@PathVariable Long id) {
         classes.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class not found"));
+        // getStudent() here only reads .getId() off a lazy proxy, which never needs a DB
+        // hit (the FK id is already known) — no fetch-join needed for this id-only usage.
         Set<Long> enrolled = payments.findByTuitionClassId(id).stream()
                 .map(p -> p.getStudent().getId()).collect(Collectors.toSet());
         return users.findByRole(Role.STUDENT).stream()

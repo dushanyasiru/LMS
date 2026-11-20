@@ -79,6 +79,14 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- In-memory DB for @DataJpaTest, so repository/N+1 tests never touch the real
+         Supabase database. Test scope only — not shipped in the deployed jar. -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- NOTE: security/JWT dependencies are added in Phase 3 -->
   </dependencies>
 
