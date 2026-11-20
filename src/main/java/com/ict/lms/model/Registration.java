@@ -45,6 +45,18 @@ public class Registration {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** The login account created for this registration (null if the email already had one). */
+    private Long userId;
+
+    /** Class the student was added to on approval. */
+    private Long classId;
+
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+
+    public Long getClassId() { return classId; }
+    public void setClassId(Long classId) { this.classId = classId; }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

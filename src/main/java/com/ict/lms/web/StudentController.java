@@ -123,7 +123,10 @@ public class StudentController {
                 settled.computeIfAbsent(key, k -> new HashSet<>()).add(sp.getSession().getId());
             }
         });
+        java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Colombo"));
+        // Only days that have already happened can be owed (auto-added future dates are not due yet).
         Map<Long, List<Long>> sessionIdsByClass = sessions.findAll().stream()
+                .filter(s -> !s.getSessionDate().isAfter(today))
                 .collect(Collectors.groupingBy(s -> s.getTuitionClass().getId(),
                         Collectors.mapping(s -> s.getId(), Collectors.toList())));
 

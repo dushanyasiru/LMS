@@ -22,6 +22,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.ict.lms.model.AppUser;
+import com.ict.lms.model.Role;
+import com.ict.lms.repo.AppUserRepository;
+import com.ict.lms.service.DefaultPassword;
 import com.ict.lms.model.ClassStatus;
 import com.ict.lms.model.Notification;
 import com.ict.lms.model.Registration;
@@ -60,8 +66,17 @@ public class PublicController {
     private final TuitionClassRepository classes;
     private final ClassSessionRepository sessions;
 
+    private final AppUserRepository users;
+    private final PasswordEncoder encoder;
+    private final com.ict.lms.service.ClassDateGenerator generator;
+
     public PublicController(RegistrationRepository registrations, NotificationRepository notifications,
-                            TuitionClassRepository classes, ClassSessionRepository sessions) {
+                            TuitionClassRepository classes, ClassSessionRepository sessions,
+                            AppUserRepository users, PasswordEncoder encoder,
+                            com.ict.lms.service.ClassDateGenerator generator) {
+        this.generator = generator;
+        this.users = users;
+        this.encoder = encoder;
         this.registrations = registrations;
         this.notifications = notifications;
         this.classes = classes;
@@ -111,6 +126,21 @@ public class PublicController {
         r.setMobile(mobile);
         r.setGrade(grade);
         r.setMedium(medium);
+        // Create a login that stays disabled until the teacher approves. Never let this lose the registration.
+        try {
+            if (!users.existsByEmail(email)) {
+                AppUser u = new AppUser();
+                u.setEmail(email);
+                u.setFullName(name);
+                u.setGrade(grade);
+                u.setRole(Role.STUDENT);
+                u.setEnabled(false);
+                u.setPasswordHash(encoder.encode(DefaultPassword.from(email, name)));
+                r.setUserId(users.save(u).getId());
+            }
+        } catch (Exception e) {
+            log.warn("Could not create login for registration", e);
+        }
         registrations.save(r);
         notifyTeachers(r);
         return Map.of("status", "ok");
@@ -131,6 +161,7 @@ public class PublicController {
 
     @GetMapping("/timetable")
     public List<PublicClassDto> timetable() {
+        generator.topUpAll();
         LocalDate today = LocalDate.now(COLOMBO);
         Map<Long, List<LocalDate>> upcoming = sessions
                 .findBySessionDateGreaterThanEqualOrderBySessionDateAsc(today).stream()

@@ -44,6 +44,18 @@ public class TuitionClass {
     /** Show on the public home-page timetable. null is treated as true (existing rows). */
     private Boolean showOnTimetable;
 
+    /** Auto-add weekly class dates, 2 months at a time. null = off (existing rows). */
+    private Boolean autoDates;
+
+    /** Auto dates have been generated up to (and including) this date. */
+    private java.time.LocalDate autoUntil;
+
+    public Boolean getAutoDates() { return autoDates; }
+    public void setAutoDates(Boolean autoDates) { this.autoDates = autoDates; }
+
+    public java.time.LocalDate getAutoUntil() { return autoUntil; }
+    public void setAutoUntil(java.time.LocalDate autoUntil) { this.autoUntil = autoUntil; }
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ClassStatus status = ClassStatus.ACTIVE;

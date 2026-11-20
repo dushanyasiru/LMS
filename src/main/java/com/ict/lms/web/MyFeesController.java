@@ -31,9 +31,12 @@ public class MyFeesController {
     private final ClassPaymentRepository enrolments;
     private final ClassSessionRepository sessions;
     private final SessionPaymentRepository sessionPayments;
+    private final com.ict.lms.service.ClassDateGenerator generator;
 
     public MyFeesController(ClassPaymentRepository enrolments, ClassSessionRepository sessions,
-                            SessionPaymentRepository sessionPayments) {
+                            SessionPaymentRepository sessionPayments,
+                            com.ict.lms.service.ClassDateGenerator generator) {
+        this.generator = generator;
         this.enrolments = enrolments;
         this.sessions = sessions;
         this.sessionPayments = sessionPayments;
@@ -42,6 +45,7 @@ public class MyFeesController {
     /** The classes the student is enrolled in, each with its dates + the student's status per date. */
     @GetMapping
     public List<MyClassFeesDto> myFees(@AuthenticationPrincipal AuthUser user) {
+        generator.topUpAll();
         return enrolments.findByStudentId(user.id()).stream()
                 .map(e -> {
                     TuitionClass c = e.getTuitionClass();

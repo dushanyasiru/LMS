@@ -862,3 +862,37 @@ a.btn-login { display: inline-block; text-decoration: none; }
 .about-sec .section-title, .reg-sec .section-title, .tt-sec .section-sub { padding-left: 0; padding-right: 0; }
 @media (min-width: 1100px) { .tt-grid.cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (min-width: 1600px) { .tt-grid.cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } .tt-grid.cols-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+
+/* Registrations: login box + approve/enrol */
+.login-box { font-size: 0.88rem; line-height: 1.5; }
+.login-actions { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.approved-tag { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: 700; font-size: 0.82rem; }
+[data-theme="dark"] .approved-tag { background: #14532d; color: #bbf7d0; }
+.enroll-row { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.enroll-row select { max-width: 200px; }
+
+/* Class fees: tappable student bars */
+.stu-bars { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; max-height: 280px; overflow-y: auto; padding-right: 2px; }
+.stu-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.15s; }
+.stu-bar:hover { background: var(--bg); transform: translateX(2px); }
+.stu-bar.on { background: linear-gradient(135deg, var(--brand), var(--brand-dark)); color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3); }
+.stu-pend { font-size: 0.78rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #dcfce7; color: #166534; white-space: nowrap; }
+.stu-pend.has { background: #fee2e2; color: #991b1b; }
+[data-theme="dark"] .stu-pend { background: #14532d; color: #bbf7d0; }
+[data-theme="dark"] .stu-pend.has { background: #7f1d1d; color: #fecaca; }
+
+/* Student bars: lay out left to right, wrapping to the next row */
+.stu-bars { flex-direction: row; flex-wrap: wrap; max-height: none; overflow-y: visible; }
+.stu-bar { width: auto; flex: 0 1 auto; }
+.stu-bar:hover { transform: translateY(-1px); }
+
+.auto-tag { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-size: 0.72rem; font-weight: 700; vertical-align: middle; }
+[data-theme="dark"] .auto-tag { background: #312e81; color: #c7d2fe; }
+
+.cc-switches { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.cc-toggle { cursor: pointer; border: 0; font: inherit; transition: transform 0.15s, filter 0.15s; }
+.cc-toggle:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.status-badge.cc-toggle { font-size: inherit; }
+.tt-toggle { padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; background: #334155; color: #cbd5e1; }
+.tt-toggle.on { background: #e0e7ff; color: #3730a3; }
+[data-theme="dark"] .tt-toggle.on { background: #312e81; color: #c7d2fe; }

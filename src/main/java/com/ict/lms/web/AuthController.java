@@ -43,6 +43,10 @@ public class AuthController {
         if (!encoder.matches(req.password(), user.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
+        if (!user.isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your account is waiting for approval. Please contact the teacher.");
+        }
         return new LoginResponse(jwt.generate(user), toDto(user));
     }
 

@@ -33,6 +33,7 @@ import com.ict.lms.repo.ClassPaymentRepository;
 import com.ict.lms.repo.ClassSessionRepository;
 import com.ict.lms.repo.SessionPaymentRepository;
 import com.ict.lms.repo.TuitionClassRepository;
+import com.ict.lms.service.ClassDateGenerator;
 import com.ict.lms.web.dto.CalendarEntryDto;
 import com.ict.lms.web.dto.ClassDto;
 import com.ict.lms.web.dto.ClassSessionDto;
@@ -56,10 +57,12 @@ public class ClassController {
     private final ClassPaymentRepository payments;
     private final SessionPaymentRepository sessionPayments;
     private final AppUserRepository users;
+    private final ClassDateGenerator generator;
 
     public ClassController(TuitionClassRepository classes, ClassSessionRepository sessions,
                            ClassPaymentRepository payments, SessionPaymentRepository sessionPayments,
-                           AppUserRepository users) {
+                           AppUserRepository users, ClassDateGenerator generator) {
+        this.generator = generator;
         this.classes = classes;
         this.sessions = sessions;
         this.payments = payments;
@@ -71,6 +74,7 @@ public class ClassController {
 
     @GetMapping
     public List<ClassDto> list() {
+        generator.topUpAll();
         return classes.findAllByOrderByCreatedAtDesc().stream().map(this::toDto).toList();
     }
 
@@ -78,7 +82,9 @@ public class ClassController {
     public ClassDto create(@RequestBody SaveClassRequest req) {
         TuitionClass c = new TuitionClass();
         apply(c, req);
-        return toDto(classes.save(c));
+        c = classes.save(c);
+        generator.topUp(c);
+        return toDto(c);
     }
 
     @PutMapping("/{id}")
@@ -86,7 +92,9 @@ public class ClassController {
         TuitionClass c = classes.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Class not found"));
         apply(c, req);
-        return toDto(classes.save(c));
+        c = classes.save(c);
+        generator.topUp(c);
+        return toDto(c);
     }
 
     @DeleteMapping("/{id}")
@@ -104,6 +112,7 @@ public class ClassController {
     /** Every class date across all classes, for the teacher's calendar (oldest first). */
     @GetMapping("/calendar")
     public List<CalendarEntryDto> calendar() {
+        generator.topUpAll();
         return sessions.findAll().stream()
                 .sorted(Comparator.comparing(ClassSession::getSessionDate))
                 .map(s -> {
@@ -116,6 +125,7 @@ public class ClassController {
 
     @GetMapping("/{id}/sessions")
     public List<ClassSessionDto> sessions(@PathVariable Long id) {
+        generator.topUpAll();
         return sessions.findByTuitionClassIdOrderBySessionDateAsc(id).stream()
                 .map(s -> new ClassSessionDto(s.getId(), s.getSessionDate()))
                 .toList();
@@ -300,6 +310,11 @@ public class ClassController {
         c.setStartTime(start);
         c.setEndTime(end);
         c.setShowOnTimetable(req.showOnTimetable() == null ? Boolean.TRUE : req.showOnTimetable());
+        boolean auto = Boolean.TRUE.equals(req.autoDates());
+        if (auto && (req.dayOfWeek() == null || req.dayOfWeek().isBlank())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose the class day to auto-add dates");
+        }
+        c.setAutoDates(auto);
     }
 
     /** "HH:mm" (or "HH:mm:ss") -> LocalTime; blank/null -> null. */
@@ -335,6 +350,6 @@ public class ClassController {
     private ClassDto toDto(TuitionClass c) {
         return new ClassDto(c.getId(), c.getName(), c.getSubject(), c.getGrade(), c.getMedium(),
                 c.getMonthlyFee(), c.getDayOfWeek(), c.getStatus().name(), c.getCreatedAt(),
-                fmt(c.getStartTime()), fmt(c.getEndTime()), c.isShownOnTimetable());
+                fmt(c.getStartTime()), fmt(c.getEndTime()), c.isShownOnTimetable(), Boolean.TRUE.equals(c.getAutoDates()));
     }
 }

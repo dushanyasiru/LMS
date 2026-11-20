@@ -112,6 +112,8 @@
         list: () => api.request("/api/registrations"),
         setStatus: (id, status) => api.request("/api/registrations/" + id + "/status", { method: "PUT", body: JSON.stringify({ status }) }),
         remove: (id) => api.request("/api/registrations/" + id, { method: "DELETE" }),
+        approve: (id) => api.request("/api/registrations/" + id + "/approve", { method: "POST" }),
+        enroll: (id, classId) => api.request("/api/registrations/" + id + "/enroll", { method: "POST", body: JSON.stringify({ classId }) }),
       },
       teachers: {
         list: () => api.request("/api/teachers"),
@@ -690,16 +692,46 @@
           {tab === "dues" && <DuesPanel />}
           {tab === "income" && <IncomePanel />}
           {tab === "students" && <StudentsPanel prefill={prefill} onPrefillUsed={() => setPrefill(null)} />}
-          {tab === "registrations" && <RegistrationsPanel onChange={refreshRegs}
-            onCreateLogin={(r) => { setPrefill({ fullName: r.fullName, email: r.email, grade: r.grade }); setTab("students"); }} />}
+          {tab === "registrations" && <RegistrationsPanel onChange={refreshRegs} />}
           {tab === "teachers" && <TeachersPanel me={user} />}
         </div>
       );
     }
 
     /** Teacher: the inbox of public registrations (name, mobile, email, grade, medium) with follow-up status. */
-    function RegistrationsPanel({ onChange, onCreateLogin }) {
+    function RegistrationsPanel({ onChange }) {
       const [items, setItems] = useState([]);
+      const [classList, setClassList] = useState([]);
+      const [pickClass, setPickClass] = useState({});   // registrationId -> chosen classId
+      const [copied, setCopied] = useState(null);
+      useEffect(() => { api.classes.list().then(setClassList).catch(() => {}); }, []);
+
+      const loginText = (r) => "Stack ICT Academy – LMS login\nURL: " + location.origin +
+        "\nEmail: " + r.email + "\nPassword: " + r.defaultPassword;
+      async function copyLogin(r) {
+        const text = loginText(r);
+        try { await navigator.clipboard.writeText(text); }
+        catch (e) {
+          const ta = document.createElement("textarea");
+          ta.value = text; document.body.appendChild(ta); ta.select();
+          try { document.execCommand("copy"); } catch (e2) { /* ignore */ }
+          document.body.removeChild(ta);
+        }
+        setCopied(r.id); setTimeout(() => setCopied(null), 2000);
+      }
+      async function approve(r) {
+        try { await api.registrations.approve(r.id); await load(); onChange && onChange(); } catch (e) { alert(e.message); }
+      }
+      async function enroll(r) {
+        const classId = pickClass[r.id];
+        if (!classId) { alert("Please choose a class"); return; }
+        try { await api.registrations.enroll(r.id, Number(classId)); await load(); onChange && onChange(); } catch (e) { alert(e.message); }
+      }
+      // Active classes of the student's grade first, then the rest.
+      const classOptions = (r) => {
+        const act = classList.filter(c => c.status === "ACTIVE");
+        return [...act.filter(c => c.grade === r.grade), ...act.filter(c => c.grade !== r.grade)];
+      };
       const [loading, setLoading] = useState(true);
       const [filter, setFilter] = useState("ALL");
       const [q, setQ] = useState("");
@@ -745,13 +777,24 @@
             shown.length === 0 ? <p className="muted">{items.length === 0 ? "No registrations yet. They appear here when someone fills in the form on the home page." : "No registrations match."}</p> :
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Student</th><th>Mobile</th><th>Email</th><th>Grade</th><th>Medium</th><th>Registered</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Student</th><th>Mobile</th><th>Login</th><th>Grade</th><th>Medium</th><th>Registered</th><th>Status</th><th>Approve / Class</th><th></th></tr></thead>
                 <tbody>
                   {shown.map(r => (
                     <tr key={r.id}>
                       <td><span className="avatar">{initials(r.fullName)}</span> <b>{r.fullName}</b></td>
                       <td><a className="wa-chip" href={waChat(r.mobile)} target="_blank" rel="noopener noreferrer" title="Open WhatsApp chat">💬 {r.mobile}</a></td>
-                      <td>{r.email}</td>
+                      <td>
+                        <div className="login-box">
+                          <div>{r.email}</div>
+                          {r.defaultPassword
+                            ? <div className="muted">Password: <b>{r.defaultPassword}</b></div>
+                            : <div className="muted">{r.hasLogin ? "Email already has an account" : "No login created"}</div>}
+                          {r.defaultPassword && <div className="login-actions">
+                            <button className="link-btn" onClick={() => copyLogin(r)}>{copied === r.id ? "Copied ✓" : "Copy for WhatsApp"}</button>
+                            <a className="wa-chip" href={waChat(r.mobile) + "?text=" + encodeURIComponent(loginText(r))} target="_blank" rel="noopener noreferrer">Send</a>
+                          </div>}
+                        </div>
+                      </td>
                       <td>{r.grade}</td>
                       <td>{r.medium}</td>
                       <td className="muted">{when(r.createdAt)}</td>
@@ -760,8 +803,20 @@
                           {STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                         </select>
                       </td>
+                      <td>
+                        {!r.hasLogin ? <span className="muted">—</span> :
+                          !r.approved ? <button className="btn" onClick={() => approve(r)}>Approve</button> :
+                          r.className ? <span className="approved-tag">✓ Approved · {r.className}</span> :
+                          <div className="enroll-row">
+                            <span className="approved-tag">✓ Approved</span>
+                            <select value={pickClass[r.id] || ""} onChange={e => setPickClass(p => ({ ...p, [r.id]: e.target.value }))}>
+                              <option value="">Add to class…</option>
+                              {classOptions(r).map(c => <option key={c.id} value={c.id}>{c.name} · Gr {c.grade}{c.grade === r.grade ? "" : " (other grade)"}</option>)}
+                            </select>
+                            <button className="btn" onClick={() => enroll(r)}>Add</button>
+                          </div>}
+                      </td>
                       <td className="reg-actions">
-                        <button className="link-btn" onClick={() => onCreateLogin(r)} title="Open the Add-a-student form pre-filled">Create login</button>
                         <button className="link-btn danger" onClick={() => del(r)}>Delete</button>
                       </td>
                     </tr>
@@ -849,7 +904,7 @@
 
       // Per class: pending days + total (pending days × class fee).
       const perClass = classes.map(c => {
-        const pendingDays = c.days.filter(d => d.status === "PENDING");
+        const pendingDays = c.days.filter(d => d.status === "PENDING" && isDue(d));
         const fee = c.monthlyFee || 0;
         return { ...c, pendingDays, pendingCount: pendingDays.length, pendingTotal: pendingDays.length * fee };
       });
@@ -1445,6 +1500,9 @@
     const CLASS_MEDIUMS = ["Sinhala", "English", "Tamil"];
     const CLASS_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     const STUDENT_GRADES = [6, 7, 8, 9, 10, 11];   // grades a student can be enrolled in
+    // A class day counts as owed only once it has happened (auto-added future dates are not due yet).
+    const isoToday = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+    const isDue = (d) => String(d.date).slice(0, 10) <= isoToday();
     const FEE_OPTIONS =[["PAID", "🟢 Paid"], ["PARTIAL", "🟡 Absent"], ["PENDING", "🔴 Pending"], ["WAIVED", "🔵 Waived"]];
 
     function money(v) { return v == null || v === "" ? "—" : "Rs. " + Number(v).toLocaleString(); }
@@ -1544,6 +1602,15 @@
         if (id) await api.classes.update(id, data); else await api.classes.create(data);
         setEditing(null); await load();
       }
+      // One-tap switches on the class card (Active/Inactive, show on timetable).
+      async function quick(c, patch) {
+        try {
+          await api.classes.update(c.id, { name: c.name, subject: c.subject, grade: c.grade, medium: c.medium,
+            monthlyFee: c.monthlyFee, dayOfWeek: c.dayOfWeek, status: c.status, startTime: c.startTime, endTime: c.endTime,
+            showOnTimetable: c.showOnTimetable, autoDates: c.autoDates, ...patch });
+          await load();
+        } catch (e) { alert(e.message); }
+      }
       async function delClass(c) {
         if (!confirm('Delete class "' + c.name + '" and all its dates & fee records?')) return;
         try { await api.classes.remove(c.id); if (selectedId === c.id) setSelectedId(null); await load(); }
@@ -1565,7 +1632,7 @@
               {classes.map(c => (
                 <ClassCard key={c.id} c={c} selected={selectedId === c.id}
                   onSelect={() => setSelectedId(selectedId === c.id ? null : c.id)}
-                  onEdit={() => setEditing(c)} onDelete={() => delClass(c)} />
+                  onEdit={() => setEditing(c)} onDelete={() => delClass(c)} onQuick={(patch) => quick(c, patch)} />
               ))}
             </div>
           }
@@ -1583,11 +1650,18 @@
       );
     }
 
-    function ClassCard({ c, selected, onSelect, onEdit, onDelete }) {
+    function ClassCard({ c, selected, onSelect, onEdit, onDelete, onQuick }) {
       return (
         <div className={"class-card" + (selected ? " selected" : "")} onClick={onSelect}>
           <div className="cc-top">
-            <span className={"status-badge " + (c.status === "ACTIVE" ? "st-active" : "st-inactive")}>{c.status === "ACTIVE" ? "Active" : "Inactive"}</span>
+            <span className="cc-switches" onClick={e => e.stopPropagation()}>
+              <button type="button" className={"status-badge cc-toggle " + (c.status === "ACTIVE" ? "st-active" : "st-inactive")}
+                title="Tap to switch Active / Inactive" onClick={() => onQuick({ status: c.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })}>
+                {c.status === "ACTIVE" ? "Active" : "Inactive"}</button>
+              <button type="button" className={"cc-toggle tt-toggle" + (c.showOnTimetable ? " on" : "")}
+                title="Tap to show / hide on the home-page timetable" onClick={() => onQuick({ showOnTimetable: !c.showOnTimetable })}>
+                {c.showOnTimetable ? "✓ On timetable" : "Hidden"}</button>
+            </span>
             <span className="cc-actions" onClick={e => e.stopPropagation()}>
               <button className="link-btn" onClick={onEdit}>Edit</button>
               <button className="link-btn danger" onClick={onDelete}>Delete</button>
@@ -1596,7 +1670,7 @@
           <h3 className="cc-name">{c.name}</h3>
           <p className="cc-sub muted">{[c.subject, c.grade ? "Grade " + c.grade : null, c.medium].filter(Boolean).join(" · ") || "—"}</p>
           <div className="cc-meta">
-            <span>📅 {c.dayOfWeek || "—"}{c.startTime ? " · " + fmtRange(c.startTime, c.endTime) : ""}</span>
+            <span>📅 {c.dayOfWeek || "—"}{c.startTime ? " · " + fmtRange(c.startTime, c.endTime) : ""}{c.autoDates && <span className="auto-tag" title="Class dates are added automatically">⟳ Auto dates</span>}</span>
             <span className="cc-fee">{money(c.monthlyFee)}/mo</span>
           </div>
           <div className="cc-hint muted">{selected ? "▲ Selected — details below" : "Tap to manage dates & fees"}</div>
@@ -1616,6 +1690,7 @@
       const [startTime, setStartTime] = useState(initial.startTime || "");
       const [endTime, setEndTime] = useState(initial.endTime || "");
       const [showOnTimetable, setShowOnTimetable] = useState(initial.showOnTimetable !== false);
+      const [autoDates, setAutoDates] = useState(initial.id ? !!initial.autoDates : true);
       const [busy, setBusy] = useState(false);
 
       async function submit(e) {
@@ -1626,7 +1701,7 @@
         try {
           await onSave({ name, subject, grade: Number(grade), medium,
             monthlyFee: monthlyFee === "" ? null : Number(monthlyFee), dayOfWeek, status,
-            startTime: startTime || null, endTime: endTime || null, showOnTimetable }, initial.id);
+            startTime: startTime || null, endTime: endTime || null, showOnTimetable, autoDates }, initial.id);
         } catch (e) { alert(e.message); } finally { setBusy(false); }
       }
       return (
@@ -1642,6 +1717,8 @@
             <label>Start time<input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></label>
             <label>End time<input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} /></label>
             <label>Status<select value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+            <label className="cf-check"><input type="checkbox" checked={autoDates} onChange={e => setAutoDates(e.target.checked)} />
+              <span>Auto-add class dates <span className="muted" style={{ fontWeight: 400 }}>(every {dayOfWeek}, 2 months at a time — you can still add or delete dates by hand)</span></span></label>
             <label className="cf-check"><input type="checkbox" checked={showOnTimetable} onChange={e => setShowOnTimetable(e.target.checked)} />
               <span>Show on the home-page timetable <span className="muted" style={{ fontWeight: 400 }}>(untick for private classes)</span></span></label>
             <div className="cf-actions">
@@ -1794,12 +1871,22 @@
           {loading ? <p className="muted">Loading…</p> :
             students.length === 0 ? <p className="muted">No students added yet — use the dropdown above to add students to this class.</p> :
             <div>
-              <div className="row-between" style={{ marginBottom: 12 }}>
-                <select value={selected || ""} onChange={e => setSelected(Number(e.target.value))}>
-                  {students.map(s => <option key={s.studentId} value={s.studentId}>{s.studentName}</option>)}
-                </select>
-                {current && <button className="link-btn danger" onClick={() => remove(current.studentId, current.studentName)}>Remove from class</button>}
+              <div className="stu-bars">
+                {students.map(s => {
+                  const pend = dates.filter(d => isDue(d) && entryOf(d.id, s.studentId).status === "PENDING").length;
+                  return (
+                    <button key={s.studentId} type="button"
+                      className={"stu-bar" + (selected === s.studentId ? " on" : "")}
+                      onClick={() => setSelected(s.studentId)}>
+                      <span className="stu-name">{s.studentName}</span>
+                      {dates.length > 0 && <span className={"stu-pend" + (pend ? " has" : "")}>{pend ? pend + " pending" : "All clear"}</span>}
+                    </button>
+                  );
+                })}
               </div>
+              {current && <div style={{ textAlign: "right", marginBottom: 8 }}>
+                <button className="link-btn danger" onClick={() => remove(current.studentId, current.studentName)}>Remove {current.studentName} from class</button>
+              </div>}
               {dates.length === 0 ? <p className="muted">Add class dates on the left to record day-wise fees.</p> :
                 <div className="table-wrap">
                   <table className="table fee-table">
@@ -1870,7 +1957,7 @@
         (async () => {
           try {
             const cls = await api.myFees();
-            const pending = cls.reduce((n, c) => n + c.days.filter(d => d.status === "PENDING").length, 0);
+            const pending = cls.reduce((n, c) => n + c.days.filter(d => d.status === "PENDING" && isDue(d)).length, 0);
             // Only nag once it piles up: 4+ pending days.
             if (pending >= 4) { setPendingDays(pending); setShowPay(true); }
           } catch (e) { /* reminder is best-effort */ }
@@ -1921,7 +2008,7 @@
 
       // Days still marked PENDING across every class the student is in.
       const pendingCount = classes.reduce(
-        (n, c) => n + c.days.filter(d => d.status === "PENDING").length, 0);
+        (n, c) => n + c.days.filter(d => d.status === "PENDING" && isDue(d)).length, 0);
 
       if (loading) return <p className="muted">Loading…</p>;
       if (classes.length === 0) return <div className="card"><p className="muted" style={{ margin: 0 }}>You are not added to any class yet.</p></div>;

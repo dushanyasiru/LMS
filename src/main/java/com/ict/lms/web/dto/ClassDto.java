@@ -14,5 +14,6 @@ public record ClassDto(
         Instant createdAt,
         String startTime,
         String endTime,
-        boolean showOnTimetable) {
+        boolean showOnTimetable,
+        boolean autoDates) {
 }

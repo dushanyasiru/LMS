@@ -11,5 +11,6 @@ public record SaveClassRequest(
         String status,
         String startTime,
         String endTime,
-        Boolean showOnTimetable) {
+        Boolean showOnTimetable,
+        Boolean autoDates) {
 }
