@@ -2,6 +2,7 @@ package com.ict.lms.web;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -108,7 +109,7 @@ public class ClassController {
                 .map(s -> {
                     TuitionClass c = s.getTuitionClass();
                     return new CalendarEntryDto(s.getSessionDate(), c.getId(), c.getName(),
-                            c.getGrade(), c.getMedium(), c.getStatus().name());
+                            c.getGrade(), c.getMedium(), c.getStatus().name(), fmt(c.getStartTime()));
                 })
                 .toList();
     }
@@ -290,6 +291,29 @@ public class ClassController {
         c.setMonthlyFee(req.monthlyFee());
         c.setDayOfWeek(req.dayOfWeek());
         c.setStatus(req.status() == null ? ClassStatus.ACTIVE : parseClassStatus(req.status()));
+
+        LocalTime start = parseTime(req.startTime(), "Start time");
+        LocalTime end = parseTime(req.endTime(), "End time");
+        if (start != null && end != null && !end.isAfter(start)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End time must be after start time");
+        }
+        c.setStartTime(start);
+        c.setEndTime(end);
+        c.setShowOnTimetable(req.showOnTimetable() == null ? Boolean.TRUE : req.showOnTimetable());
+    }
+
+    /** "HH:mm" (or "HH:mm:ss") -> LocalTime; blank/null -> null. */
+    private LocalTime parseTime(String s, String label) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return LocalTime.parse(s.trim());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, label + " must look like 19:00");
+        }
+    }
+
+    private static String fmt(LocalTime t) {
+        return t == null ? null : String.format("%02d:%02d", t.getHour(), t.getMinute());
     }
 
     private PaymentStatus parseStatus(String s) {
@@ -310,6 +334,7 @@ public class ClassController {
 
     private ClassDto toDto(TuitionClass c) {
         return new ClassDto(c.getId(), c.getName(), c.getSubject(), c.getGrade(), c.getMedium(),
-                c.getMonthlyFee(), c.getDayOfWeek(), c.getStatus().name(), c.getCreatedAt());
+                c.getMonthlyFee(), c.getDayOfWeek(), c.getStatus().name(), c.getCreatedAt(),
+                fmt(c.getStartTime()), fmt(c.getEndTime()), c.isShownOnTimetable());
     }
 }

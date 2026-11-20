@@ -11,5 +11,8 @@ public record ClassDto(
         Double monthlyFee,
         String dayOfWeek,
         String status,
-        Instant createdAt) {
+        Instant createdAt,
+        String startTime,
+        String endTime,
+        boolean showOnTimetable) {
 }

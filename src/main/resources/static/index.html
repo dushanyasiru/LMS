@@ -22,7 +22,9 @@
     const APP_NAME = "Stack ICT Academy";
     const CONTACT_PHONE = "0703974113";
     // WhatsApp uses the international format: 0703974113 -> +94 703974113
-    const WHATSAPP = "https://wa.me/94703974113";
+    const WHATSAPP_NUMBER = "94703974113";
+    const waLink = (text) => "https://wa.me/" + WHATSAPP_NUMBER + (text ? "?text=" + encodeURIComponent(text) : "");
+    const WHATSAPP = waLink("Hi, I'd like to know about the ICT classes.");
     const TOKEN_KEY = "lms_token";
     // Separate exam site — its own login, so it opens in a new tab.
     const EXAMS_URL = "https://stack-exams-ten.vercel.app/login";
@@ -105,6 +107,11 @@
       },
       income: {
         monthly: () => api.request("/api/income/monthly"),
+      },
+      registrations: {
+        list: () => api.request("/api/registrations"),
+        setStatus: (id, status) => api.request("/api/registrations/" + id + "/status", { method: "PUT", body: JSON.stringify({ status }) }),
+        remove: (id) => api.request("/api/registrations/" + id, { method: "DELETE" }),
       },
       teachers: {
         list: () => api.request("/api/teachers"),
@@ -219,19 +226,200 @@
     // ============================================================
     //  Public home / landing page
     // ============================================================
+    // ---- small shared helpers for the public pages ----
+    // "19:00" -> "7:00 PM";  ("19:00","21:00") -> "7:00 – 9:00 PM"
+    function fmtTime(hhmm) {
+      if (!hhmm) return "";
+      const [h, m] = hhmm.split(":").map(Number);
+      return (h % 12 || 12) + ":" + String(m).padStart(2, "0") + " " + (h >= 12 ? "PM" : "AM");
+    }
+    function fmtRange(a, b) {
+      if (!a) return "";
+      if (!b) return fmtTime(a);
+      const A = fmtTime(a), B = fmtTime(b);
+      return A.slice(-2) === B.slice(-2) ? A.slice(0, -3) + " – " + B : A + " – " + B;
+    }
+    // "2026-11-25" -> "Wed 25 Nov"
+    function fmtShortDate(iso) {
+      const [y, m, d] = iso.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+    }
+
+    function WhatsAppIcon({ size = 24 }) {
+      return (
+        <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden="true">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+        </svg>
+      );
+    }
+
+    /** WhatsApp-green call-to-action showing the number; opens a chat with an optional ready-typed message. */
+    function WhatsAppButton({ text, label = "Chat on WhatsApp", big }) {
+      return (
+        <a className={"wa-btn" + (big ? " big" : "")} href={text ? waLink(text) : WHATSAPP} target="_blank" rel="noopener noreferrer">
+          <span className="wa-ico"><WhatsAppIcon size={big ? 30 : 26} /></span>
+          <span className="wa-text">
+            <span className="wa-label">{label}</span>
+            <span className="wa-num">{CONTACT_PHONE}</span>
+          </span>
+        </a>
+      );
+    }
+
+    /** Public: the active classes by day, with times and the next few class dates (no fees). */
+    function Timetable() {
+      const [items, setItems] = useState(null);   // null = loading
+      useEffect(() => {
+        api.request("/api/public/timetable").then(setItems).catch(() => setItems([]));
+      }, []);
+      const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+
+      if (items === null) return <p className="muted tt-note">Loading timetable…</p>;
+      if (items.length === 0) return <p className="muted tt-note">The class timetable will be announced soon. Message us on WhatsApp for details.</p>;
+
+      const known = CLASS_DAYS;
+      const byDay = (d) => items.filter(c => (c.dayOfWeek || "").trim() === d);
+      const other = items.filter(c => !known.includes((c.dayOfWeek || "").trim()));
+      const card = (c, i) => (
+        <div className={"tt-class g" + c.grade} key={i}>
+          <div className="tt-time">🕒 {c.startTime ? fmtRange(c.startTime, c.endTime) : "Time to be announced"}</div>
+          <div className="tt-title">Grade {c.grade}{c.medium ? " · " + c.medium : ""}</div>
+          {c.subject && <div className="tt-sub">{c.subject}</div>}
+          {c.upcomingDates && c.upcomingDates.length > 0 && (
+            <div className="tt-dates">
+              <span className="tt-next">Next class: {fmtShortDate(c.upcomingDates[0])}</span>
+              {c.upcomingDates.length > 1 && <span className="tt-more">Then {c.upcomingDates.slice(1).map(fmtShortDate).join(" · ")}</span>}
+            </div>
+          )}
+        </div>
+      );
+      // Weekends only appear when there is actually a class on them.
+      const days = known.filter(d => !["Saturday", "Sunday"].includes(d) || byDay(d).length > 0);
+      return (
+        <div className={"tt-grid cols-" + (days.length + (other.length > 0 ? 1 : 0))}>
+          {days.map(d => {
+            const list = byDay(d);
+            return (
+              <div className={"tt-day" + (d === todayName ? " today" : "")} key={d}>
+                <div className="tt-dayhead"><span>{d}</span>{d === todayName && <em>Today</em>}</div>
+                {list.length === 0 ? <div className="tt-empty">No classes</div> : list.map(card)}
+              </div>
+            );
+          })}
+          {other.length > 0 && (
+            <div className="tt-day">
+              <div className="tt-dayhead"><span>Other</span></div>
+              {other.map(card)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /** Public: student registration (name, mobile, email, grade, medium). */
+    function RegisterForm() {
+      const blank = { fullName: "", mobile: "", email: "", grade: 10, medium: "Sinhala", website: "" };
+      const [f, setF] = useState(blank);
+      const [busy, setBusy] = useState(false);
+      const [err, setErr] = useState("");
+      const [doneName, setDoneName] = useState(null);
+      const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+
+      async function submit(e) {
+        e.preventDefault(); setBusy(true); setErr("");
+        try {
+          await api.request("/api/public/register", { method: "POST", body: JSON.stringify({ ...f, grade: Number(f.grade) }) });
+          setDoneName(f.fullName.trim()); setF(blank);
+        } catch (e2) { setErr(e2.message); } finally { setBusy(false); }
+      }
+
+      if (doneName) {
+        return (
+          <div className="reg-done">
+            <div className="reg-tick">✓</div>
+            <h3>Thank you{doneName ? ", " + doneName : ""}!</h3>
+            <p className="muted">We've received your registration. We'll contact you soon on the mobile number you gave.</p>
+            <WhatsAppButton text={"Hi, I just registered " + doneName + " for the ICT classes."} label="Message us on WhatsApp" />
+            <p><button type="button" className="text-link" onClick={() => setDoneName(null)}>Register another student</button></p>
+          </div>
+        );
+      }
+      return (
+        <form className="reg-form" onSubmit={submit} noValidate>
+          <div className="field">
+            <label>Student's full name</label>
+            <input value={f.fullName} onChange={set("fullName")} placeholder="e.g. Kasun Perera" maxLength={100} required />
+          </div>
+          <div className="field-row">
+            <div className="field">
+              <label>Mobile number</label>
+              <input value={f.mobile} onChange={set("mobile")} placeholder="07X XXX XXXX" inputMode="tel" required />
+            </div>
+            <div className="field">
+              <label>Email</label>
+              <input type="email" value={f.email} onChange={set("email")} placeholder="name@example.com" required />
+            </div>
+          </div>
+          <div className="field">
+            <label>Grade</label>
+            <div className="seg">
+              {STUDENT_GRADES.map(g => (
+                <button type="button" key={g} className={"seg-btn" + (Number(f.grade) === g ? " on" : "")} onClick={() => setF({ ...f, grade: g })}>{g}</button>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <label>Medium</label>
+            <div className="seg">
+              {["Sinhala", "English"].map(m => (
+                <button type="button" key={m} className={"seg-btn" + (f.medium === m ? " on" : "")} onClick={() => setF({ ...f, medium: m })}>{m}</button>
+              ))}
+            </div>
+          </div>
+          {/* honeypot: hidden from people, bots fill it and get ignored */}
+          <input className="hp" tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.website} onChange={set("website")} />
+          {err && <p className="message error" style={{ textAlign: "left", margin: "4px 0 0" }}>{err}</p>}
+          <button className="btn-login lg reg-submit" disabled={busy}>{busy ? "Sending…" : "Register now"}</button>
+          <p className="reg-consent">Your mobile number and email are only seen by the teacher, to contact you about classes.</p>
+        </form>
+      );
+    }
+
     function Home({ onLogin }) {
       const go = (id) => (e) => {
         e.preventDefault();
         const el = document.getElementById(id);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
       };
+      const rootRef = useRef(null);
+
+      // Gentle fade/slide-up as sections scroll into view (content stays visible if this can't run).
+      useEffect(() => {
+        const root = rootRef.current;
+        const els = root ? root.querySelectorAll(".reveal") : [];
+        if (!("IntersectionObserver" in window) || els.length === 0) return;
+        root.classList.add("reveal-ready");
+        const io = new IntersectionObserver((entries) => entries.forEach(en => {
+          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+        }), { threshold: 0.1 });
+        els.forEach(el => io.observe(el));
+        return () => io.disconnect();
+      }, []);
+
       return (
-        <div className="home">
+        <div className="home" ref={rootRef}>
+          <div className="home-bg" aria-hidden="true">
+            <span className="blob hb1"></span>
+            <span className="blob hb2"></span>
+            <span className="blob hb3"></span>
+          </div>
+
           <header className="home-header">
             <img src="/img/logo.jpg" alt={APP_NAME} className="home-logo" />
             <nav className="home-nav">
               <a href="#about" onClick={go("about")}>About</a>
-              <a href="#offer" onClick={go("offer")}>What you get</a>
+              <a href="#timetable" onClick={go("timetable")}>Timetable</a>
+              <a href="#register" onClick={go("register")}>Register</a>
               <a href="#contact" onClick={go("contact")}>Contact</a>
               <button className="btn-login" onClick={onLogin}>Login</button>
             </nav>
@@ -248,9 +436,10 @@
                 <p className="t-qual">BSc in Software Engineering</p>
               </div>
               <div className="cta-row">
-                <button className="btn-login lg" onClick={onLogin}>Login</button>
-                <a className="call-card" href={WHATSAPP} target="_blank" rel="noopener noreferrer">💬 Chat on WhatsApp — {CONTACT_PHONE}</a>
+                <a className="btn-login lg" href="#register" onClick={go("register")}>Register now</a>
+                <button className="btn-ghost lg" onClick={onLogin}>Student login</button>
               </div>
+              <div className="hero-wa"><WhatsAppButton big text="Hi, I'd like to know about the ICT classes." /></div>
             </div>
             <div className="hero-photo">
               <div className="photo-blob"></div>
@@ -258,7 +447,29 @@
             </div>
           </section>
 
-          <section className="about-sec" id="about">
+          <section className="tt-sec reveal" id="timetable">
+            <h2 className="section-title">Class timetable</h2>
+            <p className="section-sub">Our current weekly classes and the next class dates.</p>
+            <Timetable />
+          </section>
+
+          <section className="reg-sec reveal" id="register">
+            <div className="reg-card">
+              <div className="reg-pitch">
+                <h2>Join the classes</h2>
+                <p>Register in a minute and we'll contact you with the class details.</p>
+                <ul>
+                  <li>Grade 6 – 11, Sinhala &amp; English medium</li>
+                  <li>Lecture notes, past &amp; model papers online</li>
+                  <li>Assignments marked with personal feedback</li>
+                </ul>
+                <WhatsAppButton text="Hi, I'd like to join the ICT classes." label="Prefer to chat?" />
+              </div>
+              <div className="reg-formwrap"><RegisterForm /></div>
+            </div>
+          </section>
+
+          <section className="about-sec reveal" id="about">
             <h2 className="section-title">About the Teacher</h2>
             <div className="about-card">
               <p className="t-name">Dushan Samarawickrama</p>
@@ -274,8 +485,8 @@
             </div>
           </section>
 
-          <h2 className="section-title" style={{ textAlign: "center" }}>What you get</h2>
-          <section className="offer" id="offer">
+          <h2 className="section-title reveal" style={{ textAlign: "center" }}>What you get</h2>
+          <section className="offer reveal" id="offer">
             <div className="offer-card">
               <div className="offer-icon">📚</div>
               <h3>Notes, lecture-wise</h3>
@@ -298,10 +509,13 @@
               <div className="foot-brand">Stack ICT Academy</div>
               <p className="muted">Dushan Samarawickrama · Senior Software Engineer</p>
             </div>
-            <div className="foot-contact">
-              <a href={WHATSAPP} target="_blank" rel="noopener noreferrer">💬 WhatsApp — {CONTACT_PHONE}</a>
-            </div>
+            <WhatsAppButton text="Hi, I'd like to know about the ICT classes." />
           </footer>
+
+          <a className="wa-float" href={WHATSAPP} target="_blank" rel="noopener noreferrer" aria-label={"Chat on WhatsApp " + CONTACT_PHONE}>
+            <span className="wa-float-ico"><WhatsAppIcon size={30} /></span>
+            <span className="wa-float-text">Chat on WhatsApp · {CONTACT_PHONE}</span>
+          </a>
         </div>
       );
     }
@@ -441,6 +655,8 @@
     // ============================================================
     function TeacherHome({ user }) {
       const [tab, setTab] = useState("lessons");
+      const [newRegs, setNewRegs] = useState(0);       // registrations still marked NEW (tab badge)
+      const [prefill, setPrefill] = useState(null);     // "Create login" from a registration -> Students form
       const tabs = [
         ["lessons", "Lessons & Notes"],
         ["papers", "Papers"],
@@ -450,13 +666,20 @@
         ["dues", "Dues"],
         ["income", "Income"],
         ["students", "Students"],
+        ["registrations", "Registrations"],
         ["teachers", "Teachers"],
       ];
+      async function refreshRegs() {
+        try { const r = await api.registrations.list(); setNewRegs(r.filter(x => x.status === "NEW").length); } catch (e) { /* badge is best-effort */ }
+      }
+      useEffect(() => { refreshRegs(); }, []);
       return (
         <div>
           <div className="tabs">
             {tabs.map(([key, label]) => (
-              <button key={key} className={"tab" + (tab === key ? " active" : "")} onClick={() => setTab(key)}>{label}</button>
+              <button key={key} className={"tab" + (tab === key ? " active" : "")} onClick={() => setTab(key)}>
+                {label}{key === "registrations" && newRegs > 0 && <span className="tab-badge">{newRegs}</span>}
+              </button>
             ))}
           </div>
           {tab === "lessons" && <LessonsPanel />}
@@ -466,8 +689,87 @@
           {tab === "calendar" && <CalendarPanel />}
           {tab === "dues" && <DuesPanel />}
           {tab === "income" && <IncomePanel />}
-          {tab === "students" && <StudentsPanel />}
+          {tab === "students" && <StudentsPanel prefill={prefill} onPrefillUsed={() => setPrefill(null)} />}
+          {tab === "registrations" && <RegistrationsPanel onChange={refreshRegs}
+            onCreateLogin={(r) => { setPrefill({ fullName: r.fullName, email: r.email, grade: r.grade }); setTab("students"); }} />}
           {tab === "teachers" && <TeachersPanel me={user} />}
+        </div>
+      );
+    }
+
+    /** Teacher: the inbox of public registrations (name, mobile, email, grade, medium) with follow-up status. */
+    function RegistrationsPanel({ onChange, onCreateLogin }) {
+      const [items, setItems] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [filter, setFilter] = useState("ALL");
+      const [q, setQ] = useState("");
+
+      async function load() {
+        setLoading(true);
+        try { setItems(await api.registrations.list()); } catch (e) { alert(e.message); } finally { setLoading(false); }
+      }
+      useEffect(() => { load(); }, []);
+
+      async function setStatus(id, status) {
+        setItems(list => list.map(r => r.id === id ? { ...r, status } : r));
+        try { await api.registrations.setStatus(id, status); onChange && onChange(); }
+        catch (e) { alert(e.message); load(); }
+      }
+      async function del(r) {
+        if (!confirm("Delete the registration for " + r.fullName + "?")) return;
+        try { await api.registrations.remove(r.id); await load(); onChange && onChange(); } catch (e) { alert(e.message); }
+      }
+
+      const STATUS = [["NEW", "New"], ["CONTACTED", "Contacted"], ["ENROLLED", "Enrolled"]];
+      const count = (s) => s === "ALL" ? items.length : items.filter(r => r.status === s).length;
+      const needle = q.trim().toLowerCase();
+      const shown = items.filter(r =>
+        (filter === "ALL" || r.status === filter) &&
+        (!needle || (r.fullName + " " + r.mobile + " " + r.email).toLowerCase().includes(needle)));
+      const waChat = (mobile) => "https://wa.me/94" + mobile.replace(/^0/, "");
+      const initials = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
+      const when = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
+      return (
+        <div className="card">
+          <div className="reg-head">
+            <h3 style={{ margin: 0 }}>Registrations <span className="muted" style={{ fontWeight: 400, fontSize: "0.8rem" }}> · from the public form</span></h3>
+            <input className="reg-search" placeholder="Search name, mobile or email…" value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          <div className="reg-chips">
+            {[["ALL", "All"], ...STATUS].map(([k, l]) => (
+              <button key={k} className={"reg-chip" + (filter === k ? " on" : "")} onClick={() => setFilter(k)}>{l} <b>{count(k)}</b></button>
+            ))}
+          </div>
+          {loading ? <p className="muted">Loading…</p> :
+            shown.length === 0 ? <p className="muted">{items.length === 0 ? "No registrations yet. They appear here when someone fills in the form on the home page." : "No registrations match."}</p> :
+            <div className="table-wrap">
+              <table className="table">
+                <thead><tr><th>Student</th><th>Mobile</th><th>Email</th><th>Grade</th><th>Medium</th><th>Registered</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  {shown.map(r => (
+                    <tr key={r.id}>
+                      <td><span className="avatar">{initials(r.fullName)}</span> <b>{r.fullName}</b></td>
+                      <td><a className="wa-chip" href={waChat(r.mobile)} target="_blank" rel="noopener noreferrer" title="Open WhatsApp chat">💬 {r.mobile}</a></td>
+                      <td>{r.email}</td>
+                      <td>{r.grade}</td>
+                      <td>{r.medium}</td>
+                      <td className="muted">{when(r.createdAt)}</td>
+                      <td>
+                        <select className={"reg-status st-" + r.status.toLowerCase()} value={r.status} onChange={e => setStatus(r.id, e.target.value)}>
+                          {STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        </select>
+                      </td>
+                      <td className="reg-actions">
+                        <button className="link-btn" onClick={() => onCreateLogin(r)} title="Open the Add-a-student form pre-filled">Create login</button>
+                        <button className="link-btn danger" onClick={() => del(r)}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
         </div>
       );
     }
@@ -904,7 +1206,7 @@
       );
     }
 
-    function StudentsPanel() {
+    function StudentsPanel({ prefill, onPrefillUsed }) {
       const [students, setStudents] = useState([]);
       const [loading, setLoading] = useState(true);
       const [fullName, setFullName] = useState("");
@@ -913,6 +1215,14 @@
       const [password, setPassword] = useState("");
       const [busy, setBusy] = useState(false);
       const [msg, setMsg] = useState("");
+
+      // "Create login" from a registration: fill the Add-a-student form, teacher just adds a password.
+      useEffect(() => {
+        if (!prefill) return;
+        setFullName(prefill.fullName); setEmail(prefill.email); setGrade(prefill.grade);
+        setMsg("Pre-filled from a registration. Type a temporary password, then click Add student.");
+        onPrefillUsed && onPrefillUsed();
+      }, [prefill]);
 
       async function load() {
         setLoading(true);
@@ -1162,7 +1472,8 @@
       const iso = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
       const todayIso = iso(new Date());
       const MED = { english: "EM", sinhala: "SM", tamil: "TM" };
-      const label = (c) => "Grade " + c.grade + (c.medium ? " " + (MED[c.medium.trim().toLowerCase()] || c.medium) : "");
+      const label = (c) => "Grade " + c.grade + (c.medium ? " " + (MED[c.medium.trim().toLowerCase()] || c.medium) : "")
+        + (c.startTime ? " · " + fmtTime(c.startTime) : "");
 
       // date -> entries
       const byDate = {};
@@ -1285,7 +1596,7 @@
           <h3 className="cc-name">{c.name}</h3>
           <p className="cc-sub muted">{[c.subject, c.grade ? "Grade " + c.grade : null, c.medium].filter(Boolean).join(" · ") || "—"}</p>
           <div className="cc-meta">
-            <span>📅 {c.dayOfWeek || "—"}</span>
+            <span>📅 {c.dayOfWeek || "—"}{c.startTime ? " · " + fmtRange(c.startTime, c.endTime) : ""}</span>
             <span className="cc-fee">{money(c.monthlyFee)}/mo</span>
           </div>
           <div className="cc-hint muted">{selected ? "▲ Selected — details below" : "Tap to manage dates & fees"}</div>
@@ -1302,15 +1613,20 @@
       const [monthlyFee, setMonthlyFee] = useState(initial.monthlyFee != null ? initial.monthlyFee : "");
       const [dayOfWeek, setDayOfWeek] = useState(initial.dayOfWeek || "Monday");
       const [status, setStatus] = useState(initial.status || "ACTIVE");
+      const [startTime, setStartTime] = useState(initial.startTime || "");
+      const [endTime, setEndTime] = useState(initial.endTime || "");
+      const [showOnTimetable, setShowOnTimetable] = useState(initial.showOnTimetable !== false);
       const [busy, setBusy] = useState(false);
 
       async function submit(e) {
         e.preventDefault();
         if (!name.trim()) { alert("Class name is required"); return; }
+        if (startTime && endTime && endTime <= startTime) { alert("End time must be after the start time"); return; }
         setBusy(true);
         try {
           await onSave({ name, subject, grade: Number(grade), medium,
-            monthlyFee: monthlyFee === "" ? null : Number(monthlyFee), dayOfWeek, status }, initial.id);
+            monthlyFee: monthlyFee === "" ? null : Number(monthlyFee), dayOfWeek, status,
+            startTime: startTime || null, endTime: endTime || null, showOnTimetable }, initial.id);
         } catch (e) { alert(e.message); } finally { setBusy(false); }
       }
       return (
@@ -1319,11 +1635,15 @@
           <form onSubmit={submit} className="cf-grid">
             <label>Class name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Mathematics - Grade 11" required /></label>
             <label>Subject<input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Mathematics" /></label>
-            <label>Grade<select value={grade} onChange={e => setGrade(e.target.value)}>{[10, 11].map(g => <option key={g} value={g}>Grade {g}</option>)}</select></label>
+            <label>Grade<select value={grade} onChange={e => setGrade(e.target.value)}>{STUDENT_GRADES.map(g => <option key={g} value={g}>Grade {g}</option>)}</select></label>
             <label>Medium<select value={medium} onChange={e => setMedium(e.target.value)}>{CLASS_MEDIUMS.map(m => <option key={m} value={m}>{m}</option>)}</select></label>
             <label>Monthly fee (Rs.)<input type="number" min="0" value={monthlyFee} onChange={e => setMonthlyFee(e.target.value)} placeholder="e.g. 2500" /></label>
             <label>Day of week<select value={dayOfWeek} onChange={e => setDayOfWeek(e.target.value)}>{CLASS_DAYS.map(d => <option key={d} value={d}>{d}</option>)}</select></label>
+            <label>Start time<input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} /></label>
+            <label>End time<input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} /></label>
             <label>Status<select value={status} onChange={e => setStatus(e.target.value)}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+            <label className="cf-check"><input type="checkbox" checked={showOnTimetable} onChange={e => setShowOnTimetable(e.target.checked)} />
+              <span>Show on the home-page timetable <span className="muted" style={{ fontWeight: 400 }}>(untick for private classes)</span></span></label>
             <div className="cf-actions">
               <button className="btn-inline" disabled={busy}>{busy ? "Saving…" : (isEdit ? "Save changes" : "Create class")}</button>
               <button type="button" className="link-btn" onClick={onCancel}>Cancel</button>

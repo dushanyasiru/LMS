@@ -1,6 +1,7 @@
 package com.ict.lms.model;
 
 import java.time.Instant;
+import java.time.LocalTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -36,6 +37,13 @@ public class TuitionClass {
     /** e.g. "Monday". */
     private String dayOfWeek;
 
+    /** Class start / end time of day (optional). */
+    private LocalTime startTime;
+    private LocalTime endTime;
+
+    /** Show on the public home-page timetable. null is treated as true (existing rows). */
+    private Boolean showOnTimetable;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ClassStatus status = ClassStatus.ACTIVE;
@@ -63,6 +71,18 @@ public class TuitionClass {
 
     public String getDayOfWeek() { return dayOfWeek; }
     public void setDayOfWeek(String dayOfWeek) { this.dayOfWeek = dayOfWeek; }
+
+    public LocalTime getStartTime() { return startTime; }
+    public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
+
+    public LocalTime getEndTime() { return endTime; }
+    public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
+
+    public Boolean getShowOnTimetable() { return showOnTimetable; }
+    public void setShowOnTimetable(Boolean showOnTimetable) { this.showOnTimetable = showOnTimetable; }
+
+    /** Visible on the public timetable unless explicitly switched off. */
+    public boolean isShownOnTimetable() { return showOnTimetable == null || showOnTimetable; }
 
     public ClassStatus getStatus() { return status; }
     public void setStatus(ClassStatus status) { this.status = status; }

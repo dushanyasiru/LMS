@@ -33,6 +33,9 @@ public class SecurityConfig {
                 // public: the React app + its assets + login
                 .requestMatchers("/", "/index.html", "/css/**", "/js/**",
                                  "/favicon.ico", "/api/ping", "/api/auth/login").permitAll()
+                // public home page: the registration form and the class timetable
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/public/register").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/public/timetable").permitAll()
                 // everything else under /api needs a valid token
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll())

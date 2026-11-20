@@ -1,6 +1,6 @@
 package com.ict.lms.web.dto;
 
-/** Payload to create or update a tuition class. */
+/** Payload to create or update a tuition class. startTime/endTime are "HH:mm" (optional). */
 public record SaveClassRequest(
         String name,
         String subject,
@@ -8,5 +8,8 @@ public record SaveClassRequest(
         String medium,
         Double monthlyFee,
         String dayOfWeek,
-        String status) {
+        String status,
+        String startTime,
+        String endTime,
+        Boolean showOnTimetable) {
 }
