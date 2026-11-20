@@ -2058,6 +2058,7 @@
       const [lessons, setLessons] = useState([]);
       const [notes, setNotes] = useState([]);
       const [loading, setLoading] = useState(true);
+      const [filterGrade, setFilterGrade] = useState(null); // null = All
       useEffect(() => {
         (async () => {
           try {
@@ -2068,9 +2069,19 @@
       }, []);
       if (loading) return <p className="muted">Loading…</p>;
       if (lessons.length === 0) return <div className="card"><p className="muted">No lessons yet.</p></div>;
+      const grades = [...new Set(lessons.map(l => l.grade))].sort();
+      const shown = filterGrade === null ? lessons : lessons.filter(l => l.grade === filterGrade);
       return (
         <div>
-          {lessons.map(l => {
+          {grades.length > 1 && (
+            <div className="grade-tabs">
+              <button className={"pill" + (filterGrade === null ? " active" : "")} onClick={() => setFilterGrade(null)}>All</button>
+              {grades.map(g => (
+                <button key={g} className={"pill" + (filterGrade === g ? " active" : "")} onClick={() => setFilterGrade(g)}>Grade {g}</button>
+              ))}
+            </div>
+          )}
+          {shown.map(l => {
             const ln = notes.filter(n => n.lessonId === l.id);
             return (
               <div className="card" key={l.id}>
