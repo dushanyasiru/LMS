@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,5 +75,30 @@ class ClassDateGeneratorTest {
         TuitionClass c = wednesdayClass();
         c.setAutoDates(false);
         assertEquals(0, gen.topUp(c, LocalDate.of(2026, 11, 20)));
+    }
+
+    // ---- occurrencesInMonth: used by IncomeController's forward income projection ----
+
+    @Test
+    void occurrencesInMonth_countsMondaysInDecember2026() {
+        // Dec 1 2026 is a Tuesday, so Mondays fall on 7, 14, 21, 28 -> 4.
+        assertEquals(4, ClassDateGenerator.occurrencesInMonth("Monday", YearMonth.of(2026, 12)));
+    }
+
+    @Test
+    void occurrencesInMonth_countsWednesdaysInDecember2026() {
+        // Dec 1 2026 is a Tuesday, so Wednesdays fall on 2, 9, 16, 23, 30 -> 5.
+        assertEquals(5, ClassDateGenerator.occurrencesInMonth("Wednesday", YearMonth.of(2026, 12)));
+    }
+
+    @Test
+    void occurrencesInMonth_isCaseInsensitiveLikeParseDay() {
+        assertEquals(4, ClassDateGenerator.occurrencesInMonth("monday", YearMonth.of(2026, 12)));
+    }
+
+    @Test
+    void occurrencesInMonth_returnsZeroForNullOrInvalidDay() {
+        assertEquals(0, ClassDateGenerator.occurrencesInMonth(null, YearMonth.of(2026, 12)));
+        assertEquals(0, ClassDateGenerator.occurrencesInMonth("not a day", YearMonth.of(2026, 12)));
     }
 }

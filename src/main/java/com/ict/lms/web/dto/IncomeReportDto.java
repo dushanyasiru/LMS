@@ -8,7 +8,11 @@ import java.util.List;
  */
 public record IncomeReportDto(List<MonthIncomeDto> months, double grandTotal, long uncounted) {
 
-    /** month is "yyyy-MM". */
-    public record MonthIncomeDto(String month, double total) {
+    /**
+     * month is "yyyy-MM". expected is a projection (enrolled students x class rate x
+     * scheduled class-days that month) for the current month and the next two only;
+     * null for every other month.
+     */
+    public record MonthIncomeDto(String month, double total, Double expected) {
     }
 }

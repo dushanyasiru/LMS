@@ -853,17 +853,19 @@
             !report || report.months.length === 0 ? <p className="muted">No payments recorded yet.</p> :
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>Month</th><th className="num">Total received</th></tr></thead>
+                <thead><tr><th>Month</th><th className="num">Total received</th><th className="num">Expected</th></tr></thead>
                 <tbody>
                   {report.months.map(m => (
                     <tr key={m.month}>
                       <td>{monthLabel(m.month)}</td>
                       <td className="num">{money(m.total)}</td>
+                      <td className="num">{m.expected != null ? money(m.expected) : "—"}</td>
                     </tr>
                   ))}
                   <tr className="income-total">
                     <td>Total</td>
                     <td className="num">{money(report.grandTotal)}</td>
+                    <td className="num"></td>
                   </tr>
                 </tbody>
               </table>

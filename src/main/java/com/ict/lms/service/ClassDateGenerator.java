@@ -2,6 +2,7 @@ package com.ict.lms.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.HashSet;
@@ -106,5 +107,24 @@ public class ClassDateGenerator {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * How many times a class's weekly day falls within a given month — used to project
+     * expected income ahead of when ClassSession rows for that month actually exist
+     * (those are only auto-generated {@value #MONTHS} months at a time, see topUp()).
+     * Returns 0 for a null/unparseable day-of-week string.
+     */
+    public static long occurrencesInMonth(String dayOfWeekStr, YearMonth month) {
+        DayOfWeek dow = parseDay(dayOfWeekStr);
+        if (dow == null) return 0;
+        LocalDate d = month.atDay(1).with(TemporalAdjusters.nextOrSame(dow));
+        LocalDate end = month.atEndOfMonth();
+        long count = 0;
+        while (!d.isAfter(end)) {
+            count++;
+            d = d.plusWeeks(1);
+        }
+        return count;
     }
 }
